@@ -1,0 +1,15 @@
+{
+  "name": "heroes-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HEROES Alumni Portal - AI-led mentor app for HEROES Academy alumni",
+  "scripts": {
+    "build": "npm run build --prefix web && npm run build --prefix server",
+    "build:web": "npm run build --prefix web",
+    "build:server": "npm run build --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:web": "npm run dev --prefix web",
+    "seed:local": "ts-node --project seed/tsconfig.json seed/seed.ts"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,9 @@
+app: Heroes Portal
+deployType: cli
+cid: scd
+cpuLimitMc: 500
+memoryLimitMb: 512
+servicePortMappings:
+    - port: 8080
+      standardHttps: true
+dockerfile: Dockerfile
