@@ -62,7 +62,7 @@ Agreed scope for "actually used by real alumni". **Full sweep re-run 2026-10-11 
 - Status: **verified live 11:41 UTC** (admin login + coach-reply endpoint exercised in this sweep; roster CRUD unchanged from v1)
 
 ## Known gaps (not blocking first use, tracked deliberately)
-- Panels-on-mobile: full-screen sheet overlay (fixed inset-0, own scroll, safe-area) confirmed in the deployed bundle; needs a real-phone pass (desktop Chrome device-mode is not a phone)
+- Panels-on-mobile: full-screen sheet overlay confirmed in the deployed bundle; needs a real-phone pass (desktop Chrome device-mode is not a phone)
 - Voice on iOS Safari needs a physical device test (MediaRecorder + permissions)
 - No push notifications yet (streak reminders would need Web Push + server worker)
 
@@ -71,6 +71,8 @@ Sipho's account (sipho / heroes123) carries intentional demo state so the walkth
 
 
 
+
+## Admin experience stories
 ### S10 — Experience as member (sandbox, not impersonation)
 **As an admin, I want to feel exactly what members feel — test chats, check-ins, tools — without touching any real member's account.**
 - [x] One "Experience as member" button on the Dashboard enters member mode
@@ -81,11 +83,11 @@ Sipho's account (sipho / heroes123) carries intentional demo state so the walkth
 
 ### S11 — Messages live in Circle
 **As a member, the Circle is the community surface: feed AND direct messages in one place.**
-- [x] Segmented [Feed | Messages] view inside the Circle tab with unread badge (polled)
+- [x] Segmented [Feed | Messages] view inside the Circle tab with unread badge (8s poll)
 - [x] DM threads with 5s polling, mark-as-read on view
 - [x] Anyone can DM anyone (member→admin included)
 - [x] Tools sheet no longer holds Messages or Circle
-- Status: **verified live (staging, 2026-10-11)** — member→admin DM delivered and visible in admin conversation list
+- Status: **verified live (staging, 2026-10-11)** — recipient's unread badge incremented 1→2 on a new message; opening the thread marks read and the badge clears; segmented pill confirmed in the deployed bundle
 
 ### S12 — Admin login lands on the Dashboard
 **As an admin, my default view is the community dashboard — fundamentally different from the member experience.**
@@ -101,3 +103,5 @@ Sipho's account (sipho / heroes123) carries intentional demo state so the walkth
 - **Avatar legibility at small sizes.** The Bra Hero avatar is the full brand mark in a circle; at 24–28px (beside messages) the two-stroke glyph may read as a blob. If it bothers you on a real phone, we generate a simplified single-stroke mark for small sizes.
 - **Same-tick concurrent duplicate sends** can still double-insert (the 5s replay guard is sequential-only; the client-side in-flight guard covers real double-taps). Only reachable via scripted concurrent calls.
 - **No push notifications yet.** Streak reminders would need Web Push + a service worker — the highest-value next engagement feature.
+- **Messages polling is 5s** (no websockets) — fine for a small community, worth upgrading if it grows.
+- **Bra Hero avatar is Ahren-supplied art bundled as-is** — if a lighter small-size variant is wanted (24px message rows), we can derive one.
