@@ -89,10 +89,10 @@ Sipho's account (sipho / heroes123) carries intentional demo state so the walkth
 - [x] Tools sheet no longer holds Messages or Circle
 - Status: **verified live (staging, 2026-10-11)** — recipient's unread badge incremented 1→2 on a new message; opening the thread marks read and the badge clears; segmented pill confirmed in the deployed bundle
 
-### S12 — Admin login lands on the Dashboard
-**As an admin, my default view is the community dashboard — fundamentally different from the member experience.**
-- [x] Admin login lands on Dashboard (members overview, risk flags, accounts, opportunities, persona)
-- [x] Admin nav: Dashboard + Circle only (no Chat/Tools — those are member surfaces)
+### S12 — Admin login lands on Eed (the admin dashboard)
+**As an admin, my default view is Eed (the community dashboard) — fundamentally different from the member experience.**
+- [x] Admin login lands on Eed (members overview, risk flags, accounts, opportunities, persona)
+- [x] Admin nav: Eed + Circle only (no Chat/Tools — those are member surfaces)
 - [x] Members never see any admin surface
 - Status: **verified live (staging, 2026-10-11)**
 
