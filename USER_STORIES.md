@@ -67,7 +67,7 @@ Agreed scope for "actually used by real alumni". **Full sweep re-run 2026-10-11 
 - No push notifications yet (streak reminders would need Web Push + server worker)
 
 ## Demo-data note (for the staging walkthrough)
-Sipho's account (sipho / heroes123) carries intentional demo state so the walkthrough has texture: a driver-licence goal with step 1 done, a savings goal ("Laptop for coding course", R500 of R8000), a 1-day check-in streak, and a coach thread. All of it can be reset from the app (New conversation, uncheck steps) or wiped by recreating the user from Admin → Accounts.
+Sipho's account (sipho / heroes123) carries intentional demo state so the walkthrough has texture: a driver-licence goal with step 1 done, a savings goal ("Laptop for coding course", R500 of R8000), a 1-day check-in streak, and a coach thread. All of it can be reset from the app (New conversation, uncheck steps) or wiped by recreating the user from Eed → Accounts.
 
 
 
