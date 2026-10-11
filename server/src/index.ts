@@ -5,6 +5,7 @@ import connectPgSimple from 'connect-pg-simple';
 import path from 'path';
 import fs from 'fs';
 import { pool, initSchema, ensureAdminFromEnv } from './db';
+import { seedDemoData } from './seedBootstrap';
 import { authRouter } from './routes/auth';
 import { chatRouter } from './routes/chat';
 import { pathRouter } from './routes/path';
@@ -16,6 +17,7 @@ import { coachRouter } from './routes/coach';
 
 async function main(): Promise<void> {
   await initSchema();
+  await seedDemoData();
   await ensureAdminFromEnv();
 
   const app = express();
