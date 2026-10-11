@@ -150,7 +150,8 @@ authRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Reques
 
     const trendRes = await pool.query<{ date: string; mood: string | null }>(
       `SELECT checkin_date::text AS date, mood FROM checkins
-       WHERE user_id = $1 ORDER BY checkin_date DESC LIMIT 7`
+       WHERE user_id = $1 ORDER BY checkin_date DESC LIMIT 7`,
+      [u.id]
     );
     const mood_trend = trendRes.rows.reverse();
 
