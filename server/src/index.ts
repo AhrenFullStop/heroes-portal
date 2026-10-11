@@ -17,8 +17,8 @@ import { coachRouter } from './routes/coach';
 
 async function main(): Promise<void> {
   await initSchema();
-  await seedDemoData();
   await ensureAdminFromEnv();
+  await seedDemoData();
 
   const app = express();
   app.set('trust proxy', 1);
