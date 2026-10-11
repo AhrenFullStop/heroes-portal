@@ -201,7 +201,7 @@ circleRouter.post('/dm/:userId', async (req: Request, res: Response, next: NextF
     const content = (req.body?.content ?? '').toString().trim().slice(0, 1000);
     if (!content) { res.status(400).json({ error: 'content required' }); return; }
     const other = Number(req.params.userId);
-    const own = await pool.query("SELECT 1 FROM users WHERE id = $1 AND role = 'alumnus'", [other]);
+    const own = await pool.query('SELECT 1 FROM users WHERE id = $1', [other]);
     if (own.rows.length === 0) { res.status(404).json({ error: 'Member not found' }); return; }
     const r = await pool.query(
       `INSERT INTO direct_messages (from_user, to_user, content) VALUES ($1, $2, $3)
