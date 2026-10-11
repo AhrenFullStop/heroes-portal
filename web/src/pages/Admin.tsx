@@ -1025,7 +1025,7 @@ export default function Admin({ onExperienceMember }: { onExperienceMember: () =
     <div className="h-full overflow-y-auto px-4 pt-4 pb-8 space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-black text-xl">Dashboard</h1>
+          <h1 className="font-black text-xl">Eed</h1>
           <p className="text-slate-400 text-sm mt-0.5">Keep an eye on every member and manage the community.</p>
         </div>
         <button

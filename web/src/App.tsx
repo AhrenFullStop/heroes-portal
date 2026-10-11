@@ -65,7 +65,7 @@ export default function App() {
   const navItems: { id: Page; label: string; icon: typeof MessageSquare }[] = isAdmin
     ? user.impersonating
       ? NAV // pure member experience: Chat/Circle/Tools - no admin surface
-      : [{ id: 'admin' as Page, label: 'Dashboard', icon: Settings }, { id: 'circle', label: 'Circle', icon: Users }]
+      : [{ id: 'admin' as Page, label: 'Eed', icon: Settings }, { id: 'circle', label: 'Circle', icon: Users }]
     : NAV;
 
   function openPanel(id: PanelId) {
@@ -240,7 +240,7 @@ export default function App() {
                     className="min-h-28 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center gap-2.5 text-slate-200 hover:border-amber-500/50 active:scale-95 transition"
                   >
                     <Settings size={26} className="text-amber-500" />
-                    <span className="text-sm font-bold">Admin</span>
+                    <span className="text-sm font-bold">Eed</span>
                   </button>
                 )}
               </div>
