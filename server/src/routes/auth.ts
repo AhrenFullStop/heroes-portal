@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../db';
 import { hashPassword, verifyPassword, requireAuth } from '../auth';
+import type { MemberOverview, AdminOverviewResponse } from '../../../shared/types';
 
 export const authRouter = Router();
 
@@ -104,4 +105,110 @@ authRouter.post('/admin/users/:id/reset-password', requireAuth, requireAdmin, as
     return;
   }
   res.json({ ok: true });
+});
+
+// Admin: member overview (engagement + risk flags)
+
+const MOOD_SCORE: Record<string, number> = {
+  good: 4,
+  motivated: 4,
+  okay: 3,
+  tired: 2,
+  struggling: 1,
+};
+
+function moodDecline(trend: { mood: string | null }[]): boolean {
+  const scores = trend
+    .map((t) => (t.mood ? MOOD_SCORE[t.mood] : undefined))
+    .filter((s): s is number => typeof s === 'number');
+  if (scores.length < 3) return false;
+  const recent = scores.slice(-3);
+  const nonIncreasing = recent[0] >= recent[1] && recent[1] >= recent[2];
+  return nonIncreasing && recent[2] <= 2;
+}
+
+authRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  const users = await pool.query<{ id: number; username: string; display_name: string }>(
+    "SELECT id, username, display_name FROM users WHERE role = 'alumnus' ORDER BY display_name"
+  );
+
+  const members: MemberOverview[] = [];
+  for (const u of users.rows) {
+    const streakRes = await pool.query<{ streak: number }>(
+      `WITH days AS (
+         SELECT checkin_date, checkin_date - (ROW_NUMBER() OVER (ORDER BY checkin_date))::int AS grp
+         FROM checkins WHERE user_id = $1
+       )
+       SELECT MAX(cnt)::int AS streak FROM (SELECT grp, COUNT(*) AS cnt FROM days GROUP BY grp) s`,
+      [u.id]
+    );
+
+    const lastCheckinRes = await pool.query<{ d: string | null }>(
+      'SELECT MAX(checkin_date)::text AS d FROM checkins WHERE user_id = $1',
+      [u.id]
+    );
+
+    const trendRes = await pool.query<{ date: string; mood: string | null }>(
+      `SELECT checkin_date::text AS date, mood FROM checkins
+       WHERE user_id = $1 ORDER BY checkin_date DESC LIMIT 7`
+    );
+    const mood_trend = trendRes.rows.reverse();
+
+    const goalsRes = await pool.query<{ n: number }>(
+      "SELECT COUNT(*)::int AS n FROM goals WHERE user_id = $1 AND status = 'active'",
+      [u.id]
+    );
+
+    // goal_steps has no timestamp column; count all done steps for this user's goals.
+    const stepsRes = await pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM goal_steps gs
+       JOIN goals g ON g.id = gs.goal_id
+       WHERE g.user_id = $1 AND gs.done = true`,
+      [u.id]
+    );
+
+    const coachRes = await pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM coach_messages
+       WHERE user_id = $1 AND direction = 'to_coach' AND resolved = false`,
+      [u.id]
+    );
+
+    const lastActiveRes = await pool.query<{ d: string | null }>(
+      'SELECT MAX(created_at)::text AS d FROM chat_messages WHERE user_id = $1',
+      [u.id]
+    );
+
+    const open_coach_messages = coachRes.rows[0]?.n ?? 0;
+    const last_checkin = lastCheckinRes.rows[0]?.d ?? null;
+    const last_active = lastActiveRes.rows[0]?.d ?? null;
+
+    let risk_flag: MemberOverview['risk_flag'] = 'none';
+    if (open_coach_messages > 0) {
+      risk_flag = 'coach_open';
+    } else if (moodDecline(mood_trend)) {
+      risk_flag = 'mood_decline';
+    } else {
+      const staleCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const checkinStale = !last_checkin || new Date(last_checkin) < staleCutoff;
+      const chatStale = !last_active || new Date(last_active) < staleCutoff;
+      if (checkinStale && chatStale) risk_flag = 'low_engagement';
+    }
+
+    members.push({
+      user_id: u.id,
+      username: u.username,
+      display_name: u.display_name,
+      streak: streakRes.rows[0]?.streak ?? 0,
+      last_checkin_date: last_checkin,
+      mood_trend,
+      risk_flag,
+      active_goals: goalsRes.rows[0]?.n ?? 0,
+      steps_done_7d: stepsRes.rows[0]?.n ?? 0,
+      open_coach_messages,
+      last_active_date: last_active,
+    });
+  }
+
+  const payload: AdminOverviewResponse = { members, generated_at: new Date().toISOString() };
+  res.json(payload);
 });

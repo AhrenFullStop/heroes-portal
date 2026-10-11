@@ -1,4 +1,4 @@
-import type { User } from '../../shared/types';
+import type { User, VoiceTranscribeResponse } from '../../shared/types';
 
 export class ApiError extends Error {
   status: number;
@@ -31,6 +31,9 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  postVoice(audio: string, mime: string): Promise<VoiceTranscribeResponse> {
+    return api.post<VoiceTranscribeResponse>('/voice/transcribe', { audio, mime });
+  },
 };
 
 export type { User };

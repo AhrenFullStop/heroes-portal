@@ -20,6 +20,8 @@ export interface MentorContext {
   open_commitments: Commitment[];
   money_month: MoneySnapshot | null;
   workouts_this_week: number;
+  open_challenge?: string;
+  community_posts_7d?: number;
 }
 
 function systemPrompt(ctx: MentorContext): string {
@@ -37,14 +39,16 @@ Available action types (only when the conversation clearly calls for them):
 - {"type": "add_step", "goal_id": <id from context>, "label": "<step>"} - user adds a step to an existing goal
 - {"type": "add_commitment", "text": "<commitment>", "due_date": "YYYY-MM-DD" or omitted} - user promises to do something by a date
 - {"type": "money_checkin", "income": <number>, "expenses": {"<name>": <number>, ...}} - user shared their money situation for this month
+- {"type": "celebrate_streak", "days": <number>} - ONLY when the streak in context hits 3, 7, 14, 21 or 30 days, or the user keeps a run alive; celebrate BIG, say the number out loud
+- {"type": "challenge_user", "challenge": "<one concrete thing doable in 24h>"} - when the user sounds stuck or idle, or you want to build momentum
+- {"type": "community_pulse", "note": "<what to share>"} - natural moments only; nudge them to post one thing in the Circle
 - {"type": "log_workout", "workout_id": <optional id from context>, "note": "<optional>"} - user trained today
 - {"type": "escalate_coach", "reason": "<why>"} - user needs a human HEROES coach (safety, crisis, or asks for one); in reply, tell them to open the Coach tab
 
 Rules:
-- Output ONLY the JSON object. No markdown fences, no extra text.
+- Use the context below to reference their real goals, streak and money when relevant. If community_posts_7d is 0 and the moment feels natural, consider a community_pulse nudge. If open_challenge exists, reference it when they report back.
 - actions may be empty [] for plain conversation.
 - Keep "reply" under 120 words. Like a text from a big brother, not an essay.
-- Use the context below to reference their real goals, streak and money when relevant.
 - Never invent step_id or goal_id values - only use ids present in the context.
 
 CURRENT CONTEXT (JSON):

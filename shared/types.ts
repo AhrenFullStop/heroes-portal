@@ -19,7 +19,10 @@ export type ChatAction =
   | { type: 'add_commitment'; text: string; due_date?: string }
   | { type: 'money_checkin'; income: number; expenses: Record<string, number> }
   | { type: 'log_workout'; workout_id?: number; note?: string }
-  | { type: 'escalate_coach'; reason: string };
+  | { type: 'escalate_coach'; reason: string }
+  | { type: 'celebrate_streak'; days: number }
+  | { type: 'challenge_user'; challenge: string }
+  | { type: 'community_pulse'; note: string };
 
 export interface ChatTurn {
   reply: string;
@@ -150,4 +153,29 @@ export interface AdminUser {
   display_name: string;
   role: Role;
   created_at: string;
+}
+
+// Voice
+export interface VoiceTranscribeResponse {
+  transcript: string;
+}
+
+// Admin overview
+export interface MemberOverview {
+  user_id: number;
+  username: string;
+  display_name: string;
+  streak: number;
+  last_checkin_date: string | null;
+  mood_trend: { date: string; mood: string | null }[];
+  risk_flag: 'none' | 'low_engagement' | 'mood_decline' | 'coach_open';
+  active_goals: number;
+  steps_done_7d: number;
+  open_coach_messages: number;
+  last_active_date: string | null;
+}
+
+export interface AdminOverviewResponse {
+  members: MemberOverview[];
+  generated_at: string;
 }

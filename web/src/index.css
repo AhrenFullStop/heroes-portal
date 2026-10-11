@@ -14,3 +14,58 @@ body {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Voice recording waveform bars (staggered via animation-delay) */
+@keyframes wavebar {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.wavebar {
+  width: 3px;
+  height: 1rem;
+  border-radius: 9999px;
+  background-color: currentColor;
+  transform-origin: center;
+  animation: wavebar 0.9s ease-in-out infinite;
+}
+
+.wavebar:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.wavebar:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.wavebar:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+.wavebar:nth-child(4) {
+  animation-delay: 450ms;
+}
+
+/* Hide scrollbars on chip rails and sheet grids */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe-area helpers for notched devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}

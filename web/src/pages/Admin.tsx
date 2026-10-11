@@ -1,10 +1,279 @@
 import { useEffect, useState } from 'react';
-import { Users, UserPlus, KeyRound, Trash2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ChevronDown, Flame, KeyRound, LifeBuoy, RefreshCw, Send, UserPlus, Users } from 'lucide-react';
 import { api } from '../api';
-import { CoachInbox } from './Coach';
-import type { AdminUser } from '../../../shared/types';
+import { CoachInbox } from './CoachInbox';
+import type { AdminOverviewResponse, AdminUser, MemberOverview } from '../../../shared/types';
 
-export default function Admin() {
+const MOOD_EMOJI: Record<string, string> = {
+  good: '😄',
+  motivated: '🔥',
+  okay: '🙂',
+  tired: '😪',
+  struggling: '😔',
+};
+
+// Higher score renders higher on the sparkline (smaller y).
+const MOOD_SCORE: Record<string, number> = {
+  good: 4,
+  motivated: 4,
+  okay: 3,
+  tired: 2,
+  struggling: 1,
+};
+
+const RISK_BADGES: Record<MemberOverview['risk_flag'], { label: string; cls: string; icon?: typeof Flame }> = {
+  none: { label: 'OK', cls: 'bg-slate-800 text-slate-400 border-slate-700' },
+  low_engagement: { label: 'Low engagement', cls: 'bg-amber-500/15 text-amber-500 border-amber-500/40' },
+  mood_decline: { label: 'Mood decline', cls: 'bg-red-500/15 text-red-400 border-red-500/40' },
+  coach_open: { label: 'Coach open', cls: 'bg-violet-500/15 text-violet-400 border-violet-500/40', icon: LifeBuoy },
+};
+function relativeDays(date: string | null | undefined): string {
+  if (!date) return 'No activity';
+  const t = new Date(`${date}T00:00:00`).getTime();
+  if (Number.isNaN(t)) return 'No activity';
+  const days = Math.floor((Date.now() - t) / 86_400_000);
+  if (days <= 0) return 'Today';
+  return days === 1 ? '1d ago' : `${days}d ago`;
+}
+
+function Sparkline({ trend }: { trend: MemberOverview['mood_trend'] }) {
+  const scores = trend
+    .map((p) => (p.mood != null ? MOOD_SCORE[p.mood] : undefined))
+    .filter((s): s is number => s !== undefined);
+  if (scores.length === 0) {
+    return <span className="text-[10px] text-slate-600">No check-ins yet</span>;
+  }
+  const n = scores.length;
+  const x = (i: number) => (n === 1 ? 40 : 2 + (i / (n - 1)) * 76);
+  const y = (score: number) => 21 - (score - 1) * 6;
+  const points = scores.map((s, i) => `${x(i).toFixed(1)},${y(s).toFixed(1)}`).join(' ');
+  return (
+    <svg width="80" height="24" viewBox="0 0 80 24" className="shrink-0" aria-hidden="true">
+      <polyline
+        points={points}
+        fill="none"
+        stroke="#f59e0b"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MemberCard({ member }: { member: MemberOverview }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const risk = RISK_BADGES[member.risk_flag] ?? RISK_BADGES.none;
+
+  async function sendReply(e: React.FormEvent) {
+    e.preventDefault();
+    const content = draft.trim();
+    if (!content || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post('/admin/coach-reply', { user_id: member.user_id, content });
+      setDraft('');
+      setSent(true);
+      window.setTimeout(() => setSent(false), 3000);
+    } catch (err: any) {
+      setError(err?.message || 'Send failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <motion.div layout className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left px-4 py-3.5 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-bold truncate">{member.display_name}</div>
+            <div className="text-xs text-slate-500">@{member.username}</div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="flex items-center gap-1 text-sm font-bold text-amber-500">
+              <Flame size={14} />
+              {member.streak}
+            </span>
+            <span className={`text-[9px] uppercase tracking-wider border rounded-full px-2 py-0.5 flex items-center gap-1 ${risk.cls}`}>
+              {risk.icon && <risk.icon size={11} />}
+              {risk.label}
+            </span>
+            <ChevronDown size={14} className={`text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </div>
+        </div>
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <Sparkline trend={member.mood_trend} />
+          <div className="flex items-center gap-2 min-w-0">
+            {member.open_coach_messages > 0 && (
+              <span className="flex items-center gap-1 shrink-0 text-[9px] uppercase tracking-wider bg-violet-500/15 text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">
+                <LifeBuoy size={11} />
+                {member.open_coach_messages}
+              </span>
+            )}
+            <span className="text-[11px] text-slate-400 truncate">
+              {member.active_goals} goals · {member.steps_done_7d} steps this week
+            </span>
+          </div>
+        </div>
+        <div className="mt-1.5 text-[10px] text-slate-600">Active {relativeDays(member.last_active_date)}</div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-3 space-y-4 border-t border-slate-800/70">
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1.5">Mood trend</div>
+                {member.mood_trend.length === 0 ? (
+                  <span className="text-xs text-slate-600">No check-ins yet</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {member.mood_trend.map((p) => (
+                      <span
+                        key={p.date}
+                        title={p.date}
+                        className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1"
+                      >
+                        <span className="text-xs leading-none">{p.mood ? (MOOD_EMOJI[p.mood] ?? '•') : '–'}</span>
+                        <span className="text-[10px] text-slate-500">{p.date.slice(5)}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={sendReply} className="space-y-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    setSent(false);
+                  }}
+                  placeholder={`Message ${member.display_name} as their coach…`}
+                  rows={2}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 placeholder:text-slate-600 resize-none"
+                />
+                {error && <div className="text-xs text-red-400">{error}</div>}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={busy || !draft.trim()}
+                    className="flex items-center gap-1.5 bg-violet-500 hover:bg-violet-400 disabled:opacity-40 text-white font-bold rounded-xl px-4 py-2.5 text-sm"
+                  >
+                    <Send size={13} />
+                    {busy ? 'Sending…' : 'Send'}
+                  </button>
+                  {sent && <span className="text-xs font-bold text-emerald-400">Sent</span>}
+                </div>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function StatusPanel() {
+  const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      setOverview(await api.get<AdminOverviewResponse>('/admin/overview'));
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, []);
+
+  const members = overview?.members ?? [];
+  const flagged = members.filter((m) => m.risk_flag !== 'none').length;
+  const avgStreak =
+    members.length === 0 ? 0 : Math.round(members.reduce((sum, m) => sum + m.streak, 0) / members.length);
+
+  if (error) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-3">
+        <p className="text-sm text-slate-400">Couldn't load member status. Check the connection and try again.</p>
+        <button
+          type="button"
+          onClick={load}
+          className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl px-4 py-2.5 text-sm"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl px-3 py-3">
+          <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Members</div>
+          <div className="text-lg font-black mt-0.5">{members.length}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl px-3 py-3">
+          <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Flagged</div>
+          <div className={`text-lg font-black mt-0.5 ${flagged > 0 ? 'text-amber-500' : ''}`}>{flagged}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl px-3 py-3">
+          <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">Avg streak</div>
+          <div className="text-lg font-black mt-0.5 flex items-center gap-1">
+            <Flame size={14} className="text-amber-500" />
+            {avgStreak}
+          </div>
+        </div>
+      </div>
+
+      {overview && !Number.isNaN(new Date(overview.generated_at).getTime()) && (
+        <div className="text-[10px] text-slate-600">
+          Updated{' '}
+          {new Date(overview.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {members.map((m) => (
+          <MemberCard key={m.user_id} member={m} />
+        ))}
+      </div>
+
+      {!loading && members.length === 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-sm text-slate-500">
+          No members yet. Create accounts in the Accounts tab.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccountsPanel() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -18,7 +287,9 @@ export default function Admin() {
     const res = await api.get<{ users: AdminUser[] }>('/auth/admin/users');
     setUsers(res.users);
   }
-  useEffect(() => { load().catch(() => {}); }, []);
+  useEffect(() => {
+    load().catch(() => {});
+  }, []);
 
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
@@ -57,14 +328,11 @@ export default function Admin() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 pt-4 pb-8 space-y-5">
-      <div>
-        <h1 className="font-black text-xl">Admin</h1>
-        <p className="text-slate-400 text-sm mt-0.5">Create alumni accounts and answer coach messages.</p>
-      </div>
-
+    <div className="space-y-5">
       {msg && (
-        <div className={`text-sm rounded-xl px-4 py-3 border ${msg.ok ? 'text-emerald-400 bg-emerald-950/30 border-emerald-900/40' : 'text-red-400 bg-red-950/30 border-red-900/40'}`}>
+        <div
+          className={`text-sm rounded-xl px-4 py-3 border ${msg.ok ? 'text-emerald-400 bg-emerald-950/30 border-emerald-900/40' : 'text-red-400 bg-red-950/30 border-red-900/40'}`}
+        >
           {msg.text}
         </div>
       )}
@@ -113,7 +381,10 @@ export default function Admin() {
         </h2>
         <div className="space-y-2">
           {users.map((u) => (
-            <div key={u.id} className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+            <div
+              key={u.id}
+              className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3"
+            >
               <div>
                 <div className="text-sm font-bold">
                   {u.display_name}
@@ -127,7 +398,10 @@ export default function Admin() {
               </div>
               {u.role !== 'admin' && (
                 <button
-                  onClick={() => { setResetFor(resetFor === u.id ? null : u.id); setResetPw(''); }}
+                  onClick={() => {
+                    setResetFor(resetFor === u.id ? null : u.id);
+                    setResetPw('');
+                  }}
                   className="text-slate-500 hover:text-amber-500 p-2"
                   aria-label="Reset password"
                 >
@@ -161,6 +435,48 @@ export default function Admin() {
         </h2>
         <CoachInbox />
       </section>
+    </div>
+  );
+}
+
+type AdminTab = 'status' | 'accounts';
+
+const TABS: { id: AdminTab; label: string }[] = [
+  { id: 'status', label: 'Status' },
+  { id: 'accounts', label: 'Accounts' },
+];
+
+export default function Admin() {
+  const [tab, setTab] = useState<AdminTab>('status');
+
+  return (
+    <div className="h-full overflow-y-auto px-4 pt-4 pb-8 space-y-5">
+      <div>
+        <h1 className="font-black text-xl">Admin</h1>
+        <p className="text-slate-400 text-sm mt-0.5">Keep an eye on every member and manage their accounts.</p>
+      </div>
+
+      <div className="flex bg-slate-900 border border-slate-800 rounded-2xl p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`relative flex-1 min-h-[44px] rounded-xl px-3 py-2.5 text-sm font-bold ${tab === t.id ? 'text-slate-950' : 'text-slate-400'}`}
+          >
+            {tab === t.id && (
+              <motion.span
+                layoutId="admin-tab-pill"
+                className="absolute inset-0 bg-amber-500 rounded-xl"
+                transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+              />
+            )}
+            <span className="relative">{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {tab === 'status' ? <StatusPanel /> : <AccountsPanel />}
     </div>
   );
 }

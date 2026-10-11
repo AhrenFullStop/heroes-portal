@@ -1,33 +1,25 @@
 import { useEffect, useState } from 'react';
-import { MessageSquare, Target, Users, Wallet, Dumbbell, Briefcase, LifeBuoy, Settings, LogOut } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { MessageSquare, Wrench, Settings, LogOut, X } from 'lucide-react';
 import { api } from './api';
 import Login from './pages/Login';
 import Chat from './pages/Chat';
-import Path from './pages/Path';
-import Circle from './pages/Circle';
-import Money from './pages/Money';
-import Move from './pages/Move';
-import Work from './pages/Work';
-import Coach from './pages/Coach';
 import Admin from './pages/Admin';
+import { PANEL_REGISTRY, type PanelId } from './panels';
 import type { User } from '../../shared/types';
 
-type Page = 'chat' | 'path' | 'circle' | 'money' | 'move' | 'work' | 'coach' | 'admin';
+type Page = 'chat' | 'tools' | 'admin';
 
-const TABS: { id: Page; label: string; icon: typeof MessageSquare }[] = [
+const NAV: { id: Page; label: string; icon: typeof MessageSquare }[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
-  { id: 'path', label: 'Path', icon: Target },
-  { id: 'circle', label: 'Circle', icon: Users },
-  { id: 'money', label: 'Money', icon: Wallet },
-  { id: 'move', label: 'Move', icon: Dumbbell },
-  { id: 'work', label: 'Work', icon: Briefcase },
-  { id: 'coach', label: 'Coach', icon: LifeBuoy },
+  { id: 'tools', label: 'Tools', icon: Wrench },
 ];
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
   const [page, setPage] = useState<Page>('chat');
+  const [panel, setPanel] = useState<PanelId | null>(null);
 
   useEffect(() => {
     api.get<{ user: User }>('/auth/me')
@@ -40,14 +32,13 @@ export default function App() {
     await api.post('/auth/logout').catch(() => {});
     setUser(null);
     setPage('chat');
+    setPanel(null);
   }
 
   if (booting) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-slate-950">
-        <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center animate-pulse">
-          <span className="text-slate-950 font-black text-2xl">H</span>
-        </div>
+        <img src="/brand/icon.png" alt="HEROES" className="w-14 h-14 rounded-2xl animate-pulse" />
       </div>
     );
   }
@@ -56,18 +47,24 @@ export default function App() {
     return <Login onLogin={setUser} />;
   }
 
-  const tabs = user.role === 'admin' ? [...TABS, { id: 'admin' as Page, label: 'Admin', icon: Settings }] : TABS;
+  const isAdmin = user.role === 'admin';
+  const navItems: { id: Page; label: string; icon: typeof MessageSquare }[] = isAdmin
+    ? [...NAV, { id: 'admin' as Page, label: 'Admin', icon: Settings }]
+    : NAV;
+
+  function openPanel(id: PanelId) {
+    setPanel(id);
+    setPage('chat');
+  }
 
   function renderPage() {
     switch (page) {
-      case 'chat': return <Chat userName={user!.display_name} />;
-      case 'path': return <Path />;
-      case 'circle': return <Circle />;
-      case 'money': return <Money />;
-      case 'move': return <Move />;
-      case 'work': return <Work />;
-      case 'coach': return <Coach user={user!} />;
-      case 'admin': return <Admin />;
+      case 'chat':
+        return <Chat userName={user!.display_name} panel={panel} onPanelDismiss={() => setPanel(null)} />;
+      case 'admin':
+        return <Admin />;
+      case 'tools':
+        return null; // Tools is a slide-up sheet overlay, not a page.
     }
   }
 
@@ -75,17 +72,12 @@ export default function App() {
     <div className="h-dvh flex bg-slate-950">
       {/* Desktop sidebar */}
       <nav className="hidden md:flex flex-col w-56 border-r border-slate-800/60 bg-slate-950 py-5">
-        <div className="flex items-center gap-2.5 px-5 mb-8">
-          <div className="w-9 h-9 rounded-lg bg-amber-500 flex items-center justify-center">
-            <span className="text-slate-950 font-black text-lg">H</span>
-          </div>
-          <div>
-            <div className="font-black tracking-widest text-sm">HEROES</div>
-            <div className="text-[9px] uppercase tracking-[0.2em] text-slate-500">Alumni Portal</div>
-          </div>
+        <div className="flex items-center gap-3 px-5 mb-8">
+          <img src="/brand/portrait.png" alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-800" />
+          <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto" />
         </div>
         <div className="flex-1 space-y-1 px-3">
-          {tabs.map((t) => {
+          {navItems.map((t) => {
             const Icon = t.icon;
             return (
               <button
@@ -116,25 +108,31 @@ export default function App() {
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800/60 bg-slate-950/90">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-amber-500 flex items-center justify-center">
-              <span className="text-slate-950 font-black text-sm">H</span>
-            </div>
-            <span className="font-black tracking-widest text-sm">HEROES</span>
+        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800/60 bg-slate-950/90 pt-safe">
+          <div className="flex items-center gap-2.5">
+            <img src="/brand/icon.png" alt="" className="h-8 w-8 rounded-lg object-cover" />
+            <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto" />
           </div>
           <button onClick={logout} className="text-slate-500 hover:text-red-400 p-1" aria-label="Log out">
             <LogOut size={16} />
           </button>
         </header>
 
-        <main className={`flex-1 min-h-0 ${page === 'chat' || page === 'coach' ? 'flex flex-col' : ''}`}>
-          {renderPage()}
+        <main className="flex-1 min-h-0 flex flex-col">
+          <motion.div
+            key={page}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="flex-1 min-h-0 flex flex-col"
+          >
+            {renderPage()}
+          </motion.div>
         </main>
 
         {/* Mobile bottom tab bar */}
         <nav className="md:hidden flex border-t border-slate-800/60 bg-slate-950/95 pb-[env(safe-area-inset-bottom)]">
-          {tabs.map((t) => {
+          {navItems.map((t) => {
             const Icon = t.icon;
             return (
               <button
@@ -151,6 +149,61 @@ export default function App() {
           })}
         </nav>
       </div>
+
+      {/* Tools slide-up sheet */}
+      <AnimatePresence>
+        {page === 'tools' && (
+          <motion.div
+            key="tools-sheet"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+            className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-md pt-safe"
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/60">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Everything else</div>
+                <h2 className="font-black text-lg">Tools</h2>
+              </div>
+              <button
+                onClick={() => setPage('chat')}
+                className="w-11 h-11 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-200 active:scale-95 transition"
+                aria-label="Close tools"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar p-4">
+              <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                {(Object.keys(PANEL_REGISTRY) as PanelId[]).map((id) => {
+                  const entry = PANEL_REGISTRY[id];
+                  const Icon = entry.icon;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => openPanel(id)}
+                      className="min-h-28 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center gap-2.5 text-slate-200 hover:border-amber-500/50 active:scale-95 transition"
+                    >
+                      <Icon size={26} className="text-amber-500" />
+                      <span className="text-sm font-bold">{entry.label}</span>
+                    </button>
+                  );
+                })}
+                {isAdmin && (
+                  <button
+                    onClick={() => setPage('admin')}
+                    className="min-h-28 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center gap-2.5 text-slate-200 hover:border-amber-500/50 active:scale-95 transition"
+                  >
+                    <Settings size={26} className="text-amber-500" />
+                    <span className="text-sm font-bold">Admin</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -191,6 +191,18 @@ async function applyActions(userId: number, actions: ChatAction[]): Promise<Acti
           outcomes.push({ label: 'Coach notified - open the Coach tab' });
           break;
         }
+        case 'celebrate_streak': {
+          outcomes.push({ label: 'Streak celebration' });
+          break;
+        }
+        case 'challenge_user': {
+          outcomes.push({ label: 'New challenge set' });
+          break;
+        }
+        case 'community_pulse': {
+          outcomes.push({ label: 'Circle nudge' });
+          break;
+        }
       }
     } catch (err) {
       console.error(`[chat] action ${a.type} failed for user ${userId}:`, err);
@@ -208,36 +220,61 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response, next: Next
       return;
     }
 
-    await pool.query('INSERT INTO chat_messages (user_id, role, content) VALUES ($1, $2, $3)', [userId, 'user', message]);
-
-    const history = await q<{ role: string; content: string }>(
-      `SELECT role, content FROM chat_messages WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 20`,
+    // History FIRST, before any insert, so the new message is never in its own context.
+    const priorRows = await q<{ id: number; role: string; content: string; created_at: string }>(
+      `SELECT id, role, content, created_at::text FROM chat_messages
+       WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 20`,
       [userId]
     );
-    history.reverse();
+    priorRows.reverse();
+
+    // Idempotency guard: a double-POST within 5s replays the original assistant reply.
+    const last = priorRows[priorRows.length - 1];
+    if (last && last.role === 'user' && last.content === message) {
+      const ageMs = Date.now() - new Date(last.created_at).getTime();
+      if (ageMs >= 0 && ageMs < 5000) {
+        const nextRow = await q<{ role: string; content: string }>(
+          `SELECT role, content FROM chat_messages
+           WHERE user_id = $1 AND (created_at > $2 OR (created_at = $2 AND id > $3))
+           ORDER BY created_at ASC, id ASC LIMIT 1`,
+          [userId, last.created_at, last.id]
+        );
+        const assistantRow = nextRow.find((r) => r.role === 'assistant');
+        if (assistantRow) {
+          res.json({ reply: assistantRow.content, actions: [], message_id: last.id });
+          return;
+        }
+      }
+    }
+
+    const saved = await pool.query(
+      'INSERT INTO chat_messages (user_id, role, content) VALUES ($1, $2, $3) RETURNING id',
+      [userId, 'user', message]
+    );
 
     const ctx = await buildContext(userId, req.user!.display_name);
 
     let turn;
     try {
-      const raw = await callMentorModel(ctx, history, message);
+      const raw = await callMentorModel(ctx, priorRows, message);
       turn = parseMentorTurn(raw);
-    } catch (err: any) {
-      console.error('[chat] model call failed:', err?.message ?? err);
-      turn = { reply: "Ai, the line to my brain dropped for a second. Try me again now.", actions: [] };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[chat] model call failed:', msg);
+      turn = { reply: 'Ai, the line to my brain dropped for a second. Try me again now.', actions: [] };
     }
 
     const outcomes = await applyActions(userId, turn.actions);
 
-    const saved = await pool.query(
-      `INSERT INTO chat_messages (user_id, role, content) VALUES ($1, 'assistant', $2) RETURNING id, created_at::text`,
+    const savedAssistant = await pool.query(
+      `INSERT INTO chat_messages (user_id, role, content) VALUES ($1, 'assistant', $2) RETURNING id`,
       [userId, turn.reply]
     );
 
     res.json({
       reply: turn.reply,
       actions: outcomes.map((o) => o.label),
-      message_id: saved.rows[0].id,
+      message_id: savedAssistant.rows[0].id,
     });
   } catch (err) {
     next(err);

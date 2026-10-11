@@ -14,6 +14,7 @@ import { moneyRouter } from './routes/money';
 import { moveRouter } from './routes/move';
 import { workRouter } from './routes/work';
 import { coachRouter } from './routes/coach';
+import { voiceRouter } from './routes/voice';
 
 async function main(): Promise<void> {
   await initSchema();
@@ -22,7 +23,6 @@ async function main(): Promise<void> {
 
   const app = express();
   app.set('trust proxy', 1);
-  app.use(express.json({ limit: '256kb' }));
 
   const PgStore = connectPgSimple(session);
   app.use(
@@ -42,6 +42,12 @@ async function main(): Promise<void> {
       },
     })
   );
+
+  // Voice transcription needs a big body limit for base64 audio; mounted before the
+  // global 256kb parser so audio payloads are never rejected.
+  app.use('/api/voice', express.json({ limit: '12mb' }), voiceRouter);
+
+  app.use(express.json({ limit: '256kb' }));
 
   // Health check (no auth)
   app.get('/api/health', (_req, res) => {
