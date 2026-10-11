@@ -1,0 +1,49 @@
+# RunOS-managed files. Excluded from the build context so per-cluster
+# config and per-app secrets don't bleed into the image. The CLI's
+# tarball walker hard-excludes these too, so removing this file doesn't
+# expose the source archive, but external Docker builders (docker build,
+# kaniko, buildkit) need it to honour the same exclusions.
+runos.yaml
+runos.yaml.bak
+runos.yaml.backup
+runos.*.yaml
+runos.*.yaml.bak
+runos.*.yaml.backup
+runos.*.yml
+runos.*.yml.bak
+runos.*.yml.backup
+# Plain ConfigMap-backed env file. Non-sensitive but per-cluster, no
+# reason to bake into the image when the platform injects it via the
+# ConfigMap volume mount.
+runos.*.config.env
+.runos.*.env
+.runos*.source-version
+.secret-files/
+overrides/
+
+# Dotfile env (every Node/Python project has these).
+.env
+.env.*
+
+# VCS metadata.
+.git/
+.gitignore
+
+# Editor backups.
+*.bak
+*.backup
+*~
+.*.swp
+
+# Defensive: directories that conventionally contain credentials.
+secrets/
+**/secrets/
+**/.aws/
+**/.ssh/
+
+# Common language ignores. Helpful for Dockerfile-from-scratch builds
+# where nothing else excludes them.
+node_modules/
+__pycache__/
+.pytest_cache/
+target/

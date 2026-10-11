@@ -1,6 +1,10 @@
 app: Heroes Portal
 deployType: cli
+id: g7jp5
 cid: scd
+aid: zoskw
+secretEnv: .runos.scd.g7jp5.env
+env: runos.scd.g7jp5.config.env
 cpuLimitMc: 500
 memoryLimitMb: 512
 servicePortMappings:

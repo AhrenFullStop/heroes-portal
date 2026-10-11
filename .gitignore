@@ -7,3 +7,7 @@ dist/
 .DS_Store
 .runos.*.env
 *.tsbuildinfo
+
+.runos.scd.g7jp5.source-fingerprint
+.runos.scd.g7jp5.source-version
+server/node_modules_seed
