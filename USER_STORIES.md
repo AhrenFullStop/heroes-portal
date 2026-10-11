@@ -65,3 +65,13 @@ Agreed scope for "actually used by real alumni". **Full sweep re-run 2026-10-11 
 - Panels-on-mobile: full-screen sheet overlay (fixed inset-0, own scroll, safe-area) confirmed in the deployed bundle; needs a real-phone pass (desktop Chrome device-mode is not a phone)
 - Voice on iOS Safari needs a physical device test (MediaRecorder + permissions)
 - No push notifications yet (streak reminders would need Web Push + server worker)
+
+## Demo-data note (for the staging walkthrough)
+Sipho's account (sipho / heroes123) carries intentional demo state so the walkthrough has texture: a driver-licence goal with step 1 done, a savings goal ("Laptop for coding course", R500 of R8000), a 1-day check-in streak, and a coach thread. All of it can be reset from the app (New conversation, uncheck steps) or wiped by recreating the user from Admin → Accounts.
+
+## Known limits (honest list)
+- **Casual goal mentions don't always create goals.** Saying "I want to get my licence" mid-conversation sometimes gets a conversational reply without the goal being logged; stating intent ("set that goal up with steps") works reliably. Fix is prompt-tuning + a confirmation step ("want me to log that as a goal?") — queued.
+- **iOS voice needs a real-phone test.** The transcription path works everywhere we can test, but Safari's MediaRecorder + mic-permission flow behaves differently on real iPhones. Needs a physical device pass before launch.
+- **Avatar legibility at small sizes.** The Bra Hero avatar is the full brand mark in a circle; at 24–28px (beside messages) the two-stroke glyph may read as a blob. If it bothers you on a real phone, we generate a simplified single-stroke mark for small sizes.
+- **Same-tick concurrent duplicate sends** can still double-insert (the 5s replay guard is sequential-only; the client-side in-flight guard covers real double-taps). Only reachable via scripted concurrent calls.
+- **No push notifications yet.** Streak reminders would need Web Push + a service worker — the highest-value next engagement feature.
