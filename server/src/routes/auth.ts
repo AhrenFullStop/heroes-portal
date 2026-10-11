@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import multer from 'multer';
 import { pool } from '../db';
 
@@ -231,8 +232,10 @@ authRouter.get('/opportunities/:id/image', requireAuth, async (req: Request, res
 });
 
 
-// ---- View-as member (admin) ----
-// Sets a session flag; ALL role checks (requireAuth/requireAdmin) read the effective user.
+// ---- Member experience mode (admin) ----
+// NOT impersonation: posts/check-ins/DMs land on a synthetic sandbox account
+// ("Test Member") so admins can feel the member experience without touching a
+// real member's data or privacy.
 authRouter.post('/admin/view-as/exit', requireAuth, async (req: Request, res: Response) => {
   try {
     delete req.session.viewAsId;
@@ -242,14 +245,20 @@ authRouter.post('/admin/view-as/exit', requireAuth, async (req: Request, res: Re
   } catch (err) { res.status(500).json({ error: 'Exit failed' }); }
 });
 
-authRouter.post('/admin/view-as/:userId', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+authRouter.post('/admin/view-as', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const target = Number(req.params.userId);
-    const r = await pool.query("SELECT id, username, display_name, role FROM users WHERE id = $1 AND role = 'alumnus'", [target]);
-    if (r.rows.length === 0) { res.status(404).json({ error: 'Member not found' }); return; }
-    req.session.viewAsId = target;
+    // find-or-create the sandbox member
+    let r = await pool.query("SELECT id, username, display_name, role FROM users WHERE username = 'hero_sandbox'");
+    if (r.rows.length === 0) {
+      r = await pool.query(
+        `INSERT INTO users (username, password_hash, display_name, role)
+         VALUES ('hero_sandbox', $1, 'Test Member', 'alumnus') RETURNING id, username, display_name, role`,
+        [await hashPassword(crypto.randomBytes(24).toString('hex'))]
+      );
+    }
+    req.session.viewAsId = r.rows[0].id;
     res.json({ user: r.rows[0] });
-  } catch (err) { res.status(500).json({ error: 'View-as failed' }); }
+  } catch (err) { res.status(500).json({ error: 'Experience mode failed' }); }
 });
 
 authRouter.get('/admin/persona', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
@@ -299,7 +308,7 @@ authRouter.delete('/admin/persona', requireAuth, requireAdmin, async (_req: Requ
 
 authRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   const users = await pool.query<{ id: number; username: string; display_name: string }>(
-    "SELECT id, username, display_name FROM users WHERE role = 'alumnus' ORDER BY display_name"
+    "SELECT id, username, display_name FROM users WHERE role = 'alumnus' AND username <> 'hero_sandbox' ORDER BY display_name"
   );
 
   const members: MemberOverview[] = [];

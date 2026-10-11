@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   Briefcase,
   ChevronDown,
+  Eye,
   Flame,
   Image as ImageIcon,
   KeyRound,
@@ -526,7 +527,7 @@ function PersonaPanel() {
     <div className="space-y-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
         <div className="flex items-center gap-2">
-          <img src="/brand/bra-hero.png" alt="" className="h-9 w-9 rounded-full ring-2 ring-amber-500/40" />
+          <img src="/brand/bra-hero-256.jpg" alt="" className="h-9 w-9 rounded-full ring-2 ring-amber-500/40" />
           <div>
             <div className="text-sm font-black">Bra Hero's voice</div>
             <div className="text-[10px] uppercase tracking-widest text-slate-500">
@@ -1017,14 +1018,24 @@ const TABS: { id: AdminTab; label: string }[] = [
   { id: 'opportunities', label: 'Opportunities' },
 ];
 
-export default function Admin() {
+export default function Admin({ onExperienceMember }: { onExperienceMember: () => void }) {
   const [tab, setTab] = useState<AdminTab>('status');
 
   return (
     <div className="h-full overflow-y-auto px-4 pt-4 pb-8 space-y-5">
-      <div>
-        <h1 className="font-black text-xl">Admin</h1>
-        <p className="text-slate-400 text-sm mt-0.5">Keep an eye on every member and manage their accounts.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-black text-xl">Dashboard</h1>
+          <p className="text-slate-400 text-sm mt-0.5">Keep an eye on every member and manage the community.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onExperienceMember}
+          className="shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl px-4 min-h-[44px] text-xs uppercase tracking-wider active:scale-95 transition"
+        >
+          <Eye size={14} />
+          Experience as member
+        </button>
       </div>
 
       <div className="flex bg-slate-900 border border-slate-800 rounded-2xl p-1">

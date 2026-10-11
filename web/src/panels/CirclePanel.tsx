@@ -4,6 +4,7 @@ import { ArrowBigUp, ImagePlus, MessageCircle, Pencil, Send, Trash2, X } from 'l
 import { api } from '../api';
 import type { CircleComment, CirclePost } from '../../../shared/types';
 import { buzz, PanelHeader, PanelMount, PanelState } from './shared';
+import { MessagesPanel } from './MessagesPanel';
 
 // CirclePost in shared/types.ts carries the original columns; the feed endpoint
 // adds votes/media fields which the UI reads.
@@ -309,6 +310,21 @@ function PostCard({
 }
 
 export default function CirclePanel({ onDismiss, meId }: { onDismiss?: () => void; meId?: number }) {
+  const [view, setView] = useState<'feed' | 'messages'>('feed');
+  const [dmUnread, setDmUnread] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    async function pollUnread() {
+      try {
+        const res = await api.get<{ conversations: { unread: number }[] }>('/circle/dm/conversations');
+        if (alive) setDmUnread(res.conversations.reduce((sum, c) => sum + (c.unread || 0), 0));
+      } catch { /* silent */ }
+    }
+    pollUnread();
+    const t = setInterval(pollUnread, 8000);
+    return () => { alive = false; clearInterval(t); };
+  }, [view]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
@@ -417,8 +433,33 @@ export default function CirclePanel({ onDismiss, meId }: { onDismiss?: () => voi
     <PanelMount className="h-full flex flex-col">
       <div className="px-4 pt-4 pb-3 shrink-0">
         <PanelHeader icon={MessageCircle} label="Circle" onDismiss={onDismiss} />
+        <div className="flex bg-slate-900 border border-slate-800 rounded-2xl p-1 mt-3">
+          {(['feed', 'messages'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => { setView(v); if (v === 'messages') buzz(8); }}
+              className={`relative flex-1 min-h-[40px] rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider transition-colors ${
+                view === v ? 'text-slate-950' : 'text-slate-400'
+              }`}
+            >
+              {view === v && (
+                <motion.span layoutId="circle-tab-pill" className="absolute inset-0 bg-amber-500 rounded-xl" transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }} />
+              )}
+              <span className="relative flex items-center justify-center gap-1.5">
+                {v === 'feed' ? 'Feed' : 'Messages'}
+                {v === 'messages' && dmUnread > 0 && (
+                  <span className="min-w-5 h-5 px-1 rounded-full bg-slate-950 text-amber-400 text-[10px] font-black flex items-center justify-center">
+                    {dmUnread}
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
 
-        <form onSubmit={publish} className="bg-white rounded-2xl p-3 text-slate-950 shadow-lg shadow-black/20">
+        {view === 'feed' && (
+          <form onSubmit={publish} className="bg-white rounded-2xl p-3 text-slate-950 shadow-lg shadow-black/20">
           <textarea
             ref={composerRef}
             value={draft}
@@ -470,7 +511,9 @@ export default function CirclePanel({ onDismiss, meId }: { onDismiss?: () => voi
             </button>
           </div>
         </form>
+          )}
 
+        {view === 'feed' && (
         <div className="flex gap-2 mt-3">
           {FILTERS.map((f) => (
             <button
@@ -490,8 +533,14 @@ export default function CirclePanel({ onDismiss, meId }: { onDismiss?: () => voi
             </button>
           ))}
         </div>
+        )}
       </div>
 
+      {view === 'messages' ? (
+        <div className="flex-1 min-h-0">
+          <MessagesPanel embedded />
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-3">
         {!loaded ? (
           <PanelState busy>Loading the Circle…</PanelState>
@@ -514,6 +563,7 @@ export default function CirclePanel({ onDismiss, meId }: { onDismiss?: () => voi
           ))
         )}
       </div>
+      )}
     </PanelMount>
   );
 }

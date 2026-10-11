@@ -20,12 +20,15 @@ const NAV: { id: Page; label: string; icon: typeof MessageSquare }[] = [
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
-  const [page, setPage] = useState<Page>('chat');
+  const [page, setPage] = useState<Page>('chat'); // reset below for admins
   const [panel, setPanel] = useState<PanelId | null>(null);
 
   useEffect(() => {
     api.get<{ user: User }>('/auth/me')
-      .then((res) => setUser(res.user))
+      .then((res) => {
+        setUser(res.user);
+        if (res.user.role === 'admin') setPage('admin');
+      })
       .catch(() => {})
       .finally(() => setBooting(false));
   }, []);
@@ -33,6 +36,14 @@ export default function App() {
   async function logout() {
     await api.post('/auth/logout').catch(() => {});
     setUser(null);
+    setPage('chat');
+    setPanel(null);
+  }
+
+  async function enterMemberExperience() {
+    try { navigator.vibrate?.(10); } catch { /* desktop */ }
+    const res = await api.post<{ user: User }>('/auth/admin/view-as');
+    setUser({ ...res.user, impersonating: true });
     setPage('chat');
     setPanel(null);
   }
@@ -50,8 +61,11 @@ export default function App() {
   }
 
   const isAdmin = user.role === 'admin';
+  // Admins manage the community: Dashboard + Circle. Full member nav only in experience mode.
   const navItems: { id: Page; label: string; icon: typeof MessageSquare }[] = isAdmin
-    ? [...NAV, { id: 'admin' as Page, label: 'Admin', icon: Settings }]
+    ? user.impersonating
+      ? NAV // pure member experience: Chat/Circle/Tools - no admin surface
+      : [{ id: 'admin' as Page, label: 'Dashboard', icon: Settings }, { id: 'circle', label: 'Circle', icon: Users }]
     : NAV;
 
   function openPanel(id: PanelId) {
@@ -68,7 +82,7 @@ export default function App() {
         return <Circle />;
       }
       case 'admin':
-        return <Admin />;
+        return <Admin onExperienceMember={enterMemberExperience} />;
       case 'tools':
         return null; // Tools is a slide-up sheet overlay, not a page.
     }
@@ -88,7 +102,7 @@ export default function App() {
         <div className="shrink-0 z-[60] relative bg-amber-500 text-slate-950 flex items-center gap-2 px-4 py-2">
           <Eye size={16} className="shrink-0" />
           <span className="text-xs font-black uppercase tracking-wider truncate flex-1">
-            Viewing as {user.display_name}
+            Test mode - experiencing the app as a member
           </span>
           <button
             onClick={exitViewAs}
@@ -99,7 +113,7 @@ export default function App() {
         </div>
       )}
       <div className="flex-1 min-h-0 flex">
-      <nav className="hidden md:flex flex-col w-56 border-r border-slate-800/60 bg-slate-950 py-5">
+      <nav className="hidden md:flex flex-col w-56 border-r border-slate-800/60 bg-slate-950 pt-[26px] pb-5">
         <div className="flex items-center gap-3 px-5 mb-8">
           <img src="/brand/portrait.png" alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-800" />
           <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto" />
@@ -136,7 +150,7 @@ export default function App() {
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800/60 bg-slate-950/90 pt-safe">
+        <header className="md:hidden flex items-center justify-between px-4 pt-[18px] pb-3 border-b border-slate-800/60 bg-slate-950/90 pt-safe">
           <div className="flex items-center gap-2.5">
             <img src="/brand/app-logo.png" alt="" className="h-9 w-9 object-contain" />
             <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto" />
@@ -205,7 +219,7 @@ export default function App() {
             <div className="flex-1 overflow-y-auto no-scrollbar p-4">
               <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
                 {(Object.keys(PANEL_REGISTRY) as PanelId[])
-                  .filter((id) => id !== 'circle') // Circle is a primary tab now
+                  .filter((id) => id !== 'circle' && id !== 'messages') // Circle is a primary tab; Messages lives inside Circle
                   .map((id) => {
                     const entry = PANEL_REGISTRY[id];
                     const Icon = entry.icon;

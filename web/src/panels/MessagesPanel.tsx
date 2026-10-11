@@ -254,14 +254,16 @@ function Thread({
   );
 }
 
-export function MessagesPanel({ onDismiss }: { onDismiss?: () => void; initialUserId?: number }) {
+export function MessagesPanel({ onDismiss, embedded }: { onDismiss?: () => void; initialUserId?: number; embedded?: boolean }) {
   const [active, setActive] = useState<{ userId: number; displayName: string } | null>(null);
 
   return (
-    <PanelMount className="h-full flex flex-col">
+    <PanelMount className={embedded ? 'h-full flex flex-col min-h-0' : 'h-full flex flex-col'}>
+      {!embedded && (
       <div className="px-4 pt-4 pb-3 shrink-0">
         {!active && <PanelHeader icon={MessageCircle} label="Messages" onDismiss={onDismiss} />}
       </div>
+      )}
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-8">
         {active ? (
           <Thread

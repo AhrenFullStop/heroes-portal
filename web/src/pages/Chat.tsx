@@ -231,7 +231,7 @@ export default function Chat({ userName, panel, onPanelDismiss, onOpenPanel }: C
       {/* Chat header: brand + new conversation */}
       <div className="flex items-center justify-between px-4 pt-3">
         <div className="flex items-center gap-2 min-w-0">
-          <img src="/brand/bra-hero.png" alt="Bra Hero" className="h-9 w-9 rounded-full ring-2 ring-amber-500/40 shrink-0" />
+          <img src="/brand/bra-hero-256.jpg" alt="Bra Hero" className="h-9 w-9 rounded-full ring-2 ring-amber-500/40 shrink-0" />
           <span className="font-black tracking-widest text-sm truncate">BRA HERO</span>
         </div>
         <button
@@ -256,7 +256,7 @@ export default function Chat({ userName, panel, onPanelDismiss, onOpenPanel }: C
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/60">
               <div className="flex items-center gap-2 min-w-0">
-                <img src="/brand/bra-hero.png" alt="" className="h-8 w-8 rounded-full shrink-0" />
+                <img src="/brand/bra-hero-256.jpg" alt="" className="h-8 w-8 rounded-full shrink-0" />
                 <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto shrink-0" />
               </div>
               <button
@@ -277,7 +277,7 @@ export default function Chat({ userName, panel, onPanelDismiss, onOpenPanel }: C
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-4">
         {messages.length === 0 && (
           <div className="text-center pt-10 px-6">
-            <img src="/brand/bra-hero.png" alt="Bra Hero" className="w-16 h-16 rounded-full mx-auto mb-4 ring-2 ring-amber-500/40" />
+            <img src="/brand/bra-hero-256.jpg" alt="Bra Hero" className="w-16 h-16 rounded-full mx-auto mb-4 ring-2 ring-amber-500/40" />
             <h2 className="font-black text-xl">Bra Hero is listening, {userName.split(' ')[0]}.</h2>
             <p className="text-slate-400 text-sm mt-2 max-w-xs mx-auto">
               Tell me how today went. Or what you're chasing. We'll make a plan together.
@@ -292,7 +292,7 @@ export default function Chat({ userName, panel, onPanelDismiss, onOpenPanel }: C
             className={`flex items-start gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {m.role === 'assistant' && (
-              <img src="/brand/bra-hero.png" alt="" className="h-7 w-7 rounded-full shrink-0 mt-1" />
+              <img src="/brand/bra-hero-256.jpg" alt="" className="h-7 w-7 rounded-full shrink-0 mt-1" />
             )}
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
