@@ -60,7 +60,7 @@ export default function App() {
   function renderPage() {
     switch (page) {
       case 'chat':
-        return <Chat userName={user!.display_name} panel={panel} onPanelDismiss={() => setPanel(null)} />;
+        return <Chat userName={user!.display_name} panel={panel} onPanelDismiss={() => setPanel(null)} onOpenPanel={(id) => setPanel(id)} />;
       case 'admin':
         return <Admin />;
       case 'tools':

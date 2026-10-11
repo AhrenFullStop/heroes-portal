@@ -77,7 +77,7 @@ function MemberCard({ member }: { member: MemberOverview }) {
     setBusy(true);
     setError(null);
     try {
-      await api.post('/admin/coach-reply', { user_id: member.user_id, content });
+      await api.post('/coach/reply', { user_id: member.user_id, content });
       setDraft('');
       setSent(true);
       window.setTimeout(() => setSent(false), 3000);
@@ -200,7 +200,7 @@ function StatusPanel() {
     setLoading(true);
     setError(false);
     try {
-      setOverview(await api.get<AdminOverviewResponse>('/admin/overview'));
+      setOverview(await api.get<AdminOverviewResponse>('/auth/admin/overview'));
     } catch {
       setError(true);
     } finally {
@@ -439,11 +439,145 @@ function AccountsPanel() {
   );
 }
 
-type AdminTab = 'status' | 'accounts';
+
+// ---- Bra Hero persona editor (admin) ----
+interface PersonaState {
+  persona: string;
+  is_custom: boolean;
+  updated_at: string | null;
+  default: string;
+}
+
+function PersonaPanel() {
+  const [state, setState] = useState<PersonaState | null>(null);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [dirty, setDirty] = useState(false);
+
+  async function load() {
+    try {
+      const res = await api.get<PersonaState>('/auth/admin/persona');
+      setState(res);
+      setDraft(res.persona);
+      setDirty(false);
+    } catch {
+      setMsg({ kind: 'err', text: 'Could not load the persona.' });
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function save() {
+    if (saving || !dirty) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      await api.put('/auth/admin/persona', { persona: draft });
+      setMsg({ kind: 'ok', text: 'Saved. Bra Hero speaks with this voice from the next message.' });
+      setDirty(false);
+      try { navigator.vibrate?.(10); } catch { /* desktop */ }
+      await load();
+    } catch (err: any) {
+      setMsg({ kind: 'err', text: err?.message || 'Save failed' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetDefault() {
+    if (saving) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await api.del<{ persona: string }>('/auth/admin/persona');
+      setDraft(res.persona);
+      setDirty(false);
+      setMsg({ kind: 'ok', text: 'Back to the default Bra Hero voice.' });
+      await load();
+    } catch (err: any) {
+      setMsg({ kind: 'err', text: err?.message || 'Reset failed' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!state) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-sm text-slate-400">
+        Loading persona...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <img src="/brand/bra-hero.png" alt="" className="h-9 w-9 rounded-full ring-2 ring-amber-500/40" />
+          <div>
+            <div className="text-sm font-black">Bra Hero's voice</div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500">
+              {state.is_custom ? `Custom - updated ${state.updated_at?.slice(0, 10)}` : 'Default voice'}
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Describe how Bra Hero should sound - his tone, his attitude, what he cares about. The app's machinery
+          (goal logging, check-ins, money, coach escalation) keeps working no matter what you write here. Keep it
+          under ~600 words. Do not try to change the reply format.
+        </p>
+      </div>
+
+      <textarea
+        value={draft}
+        onChange={(e) => { setDraft(e.target.value); setDirty(true); }}
+        rows={12}
+        maxLength={4000}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 focus:border-amber-500/60 outline-none p-4 text-sm text-slate-100 leading-relaxed resize-y min-h-[220px]"
+        placeholder={'You are "Bra Hero"... describe his voice, his values, how he talks to the young men.'}
+      />
+
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={resetDefault}
+          disabled={saving || !state.is_custom}
+          className="text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-red-400 disabled:opacity-40 min-h-[44px] px-3"
+        >
+          Reset to default
+        </button>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-slate-500">{draft.length}/4000</span>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !dirty}
+            className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-black rounded-xl px-5 min-h-[44px] text-sm"
+          >
+            {saving ? 'Saving...' : 'Save voice'}
+          </button>
+        </div>
+      </div>
+
+      {msg && (
+        <motion.p
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`text-xs ${msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}
+        >
+          {msg.text}
+        </motion.p>
+      )}
+    </div>
+  );
+}
+
+type AdminTab = 'status' | 'accounts' | 'persona';
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: 'status', label: 'Status' },
   { id: 'accounts', label: 'Accounts' },
+  { id: 'persona', label: 'Bra Hero' },
 ];
 
 export default function Admin() {
@@ -476,7 +610,9 @@ export default function Admin() {
         ))}
       </div>
 
-      {tab === 'status' ? <StatusPanel /> : <AccountsPanel />}
+      {tab === 'status' && <StatusPanel />}
+      {tab === 'accounts' && <AccountsPanel />}
+      {tab === 'persona' && <PersonaPanel />}
     </div>
   );
 }

@@ -127,6 +127,55 @@ function moodDecline(trend: { mood: string | null }[]): boolean {
   return nonIncreasing && recent[2] <= 2;
 }
 
+
+// ---- Bra Hero persona (admin-editable) ----
+const PERSONA_MAX = 4000;
+
+authRouter.get('/admin/persona', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const { getPersona, DEFAULT_PERSONA } = await import('../ai');
+    const r = await pool.query<{ value: string; updated_at: string }>("SELECT value, updated_at::text FROM app_settings WHERE key = 'persona'");
+    res.json({
+      persona: r.rows[0]?.value ?? DEFAULT_PERSONA,
+      is_custom: r.rows[0] != null,
+      updated_at: r.rows[0]?.updated_at ?? null,
+      default: DEFAULT_PERSONA,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load persona' });
+  }
+});
+
+authRouter.put('/admin/persona', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const persona = (req.body?.persona ?? '').toString().trim();
+    if (!persona) { res.status(400).json({ error: 'persona required (empty resets to default - use DELETE)' }); return; }
+    if (persona.length > PERSONA_MAX) { res.status(400).json({ error: `persona too long (max ${PERSONA_MAX} chars)` }); return; }
+    // Guardrail: an admin prompt that forbids the JSON harness would break every action.
+    const forbidden = /never use (json|actions)|ignore (all )?(previous|above) instructions|output plain text only/i;
+    if (forbidden.test(persona)) {
+      res.status(400).json({ error: 'This directive conflicts with the action harness. Bra Hero must always reply with the JSON shape - phrase personality changes without overriding the output format.' });
+      return;
+    }
+    await pool.query(
+      "INSERT INTO app_settings (key, value) VALUES ('persona', $1) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()",
+      [persona]
+    );
+    res.json({ ok: true, persona });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save persona' });
+  }
+});
+
+authRouter.delete('/admin/persona', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    await pool.query("DELETE FROM app_settings WHERE key = 'persona'");
+    res.json({ ok: true, persona: (await import('../ai')).DEFAULT_PERSONA });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset persona' });
+  }
+});
+
 authRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   const users = await pool.query<{ id: number; username: string; display_name: string }>(
     "SELECT id, username, display_name FROM users WHERE role = 'alumnus' ORDER BY display_name"

@@ -79,6 +79,19 @@ pathRouter.put('/steps/:id', async (req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 });
 
+pathRouter.patch('/goals/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const title = (req.body?.title ?? '').toString().trim();
+    if (!title) { res.status(400).json({ error: 'title required' }); return; }
+    const r = await pool.query(
+      "UPDATE goals SET title = $1 WHERE id = $2 AND user_id = $3 AND status = 'active' RETURNING id, title",
+      [title, Number(req.params.id), req.user!.id]
+    );
+    if (r.rows.length === 0) { res.status(404).json({ error: 'Goal not found' }); return; }
+    res.json({ goal: r.rows[0] });
+  } catch (err) { next(err); }
+});
+
 pathRouter.delete('/goals/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const r = await pool.query('UPDATE goals SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING id', ['archived', Number(req.params.id), req.user!.id]);

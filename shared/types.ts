@@ -19,6 +19,7 @@ export type ChatAction =
   | { type: 'add_commitment'; text: string; due_date?: string }
   | { type: 'money_checkin'; income: number; expenses: Record<string, number> }
   | { type: 'log_workout'; workout_id?: number; note?: string }
+  | { type: 'create_savings_goal'; name: string; target_amount: number }
   | { type: 'escalate_coach'; reason: string }
   | { type: 'celebrate_streak'; days: number }
   | { type: 'challenge_user'; challenge: string }

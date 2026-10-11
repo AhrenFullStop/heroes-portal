@@ -132,3 +132,20 @@ CREATE TABLE IF NOT EXISTS session (
   expire timestamp NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_session_expire ON session(expire);
+
+-- Admin-editable Bra Hero personality (amended AFTER the core harness prompt)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key text PRIMARY KEY,
+  value text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+-- Member-created savings goals (Money v2)
+CREATE TABLE IF NOT EXISTS savings_goals (
+  id serial PRIMARY KEY,
+  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  target_amount numeric NOT NULL CHECK (target_amount > 0),
+  saved_amount numeric NOT NULL DEFAULT 0 CHECK (saved_amount >= 0),
+  done boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

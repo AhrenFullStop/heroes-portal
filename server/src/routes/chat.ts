@@ -62,6 +62,12 @@ async function buildContext(userId: number, displayName: string): Promise<Mentor
     [userId, month]
   );
 
+  const savingsRes = await pool.query(
+    `SELECT id, name, target_amount::text, saved_amount::text, done FROM savings_goals
+     WHERE user_id = $1 AND done = false ORDER BY created_at DESC LIMIT 5`,
+    [userId]
+  );
+
   const wkRes = await pool.query<{ n: number }>(
     `SELECT COUNT(*)::int AS n FROM workout_logs
      WHERE user_id = $1 AND done_on >= (CURRENT_DATE - INTERVAL '6 days')`,
@@ -74,6 +80,7 @@ async function buildContext(userId: number, displayName: string): Promise<Mentor
     today_checkin: todayCheckin as Checkin | null,
     streak,
     goals,
+    savings_goals: savingsRes.rows,
     open_commitments: commRes.rows as Commitment[],
     money_month: (moneyRes.rows[0] as MoneySnapshot) ?? null,
     workouts_this_week: wkRes.rows[0]?.n ?? 0,
@@ -145,6 +152,17 @@ async function applyActions(userId: number, actions: ChatAction[]): Promise<Acti
           );
           await pool.query('INSERT INTO goal_steps (goal_id, label, position) VALUES ($1, $2, $3)', [a.goal_id, a.label, posRes.rows[0].n]);
           outcomes.push({ label: `Step added: ${a.label}` });
+          break;
+        }
+        case 'create_savings_goal': {
+          const name = a.name?.toString().trim() ?? '';
+          const target = Number(a.target_amount);
+          if (!name || !isFinite(target) || target <= 0) break;
+          await pool.query(
+            'INSERT INTO savings_goals (user_id, name, target_amount) VALUES ($1, $2, $3)',
+            [userId, name.slice(0, 80), target]
+          );
+          outcomes.push({ label: `Savings goal: ${name} (R${target})` });
           break;
         }
         case 'add_commitment': {

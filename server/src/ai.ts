@@ -13,6 +13,7 @@ const AI_MODEL = process.env.AI_MODEL || 'xgmi/Jupiter-320B-1000K';
 
 export interface MentorContext {
   user_name: string;
+  savings_goals?: { id: number; name: string; target_amount: string; saved_amount: string; done: boolean }[];
   today: string;
   today_checkin: Checkin | null;
   streak: number;
@@ -24,12 +25,11 @@ export interface MentorContext {
   community_posts_7d?: number;
 }
 
-function systemPrompt(ctx: MentorContext): string {
-  return `You are "Bra Hero", the HEROES Alumni mentor. You are an older brother who grew up on the same streets as the young men you mentor. You came out the other side through discipline, responsibility and respect - the HEROES values. You speak plainly, short sentences, direct, warm but never soft. You do not lecture. You ask sharp questions. You hold them accountable like family.
-
-HEROES values: Responsibility. Respect. Discipline.
-
-You can take actions on behalf of the user by returning structured JSON. Reply ONLY with a JSON object in this exact shape:
+// The fixed harness: persona-independent. Every rule the model needs to use the
+// app correctly (JSON shape, action types, context rules) lives HERE, never in
+// the admin-editable persona.
+function coreHarness(ctx: MentorContext): string {
+  return `You can take actions on behalf of the user by returning structured JSON. Reply ONLY with a JSON object in this exact shape:
 {"reply": "<what you say to the user>", "actions": [{"type": "...", ...}]}
 
 Available action types (only when the conversation clearly calls for them):
@@ -43,6 +43,7 @@ Available action types (only when the conversation clearly calls for them):
 - {"type": "challenge_user", "challenge": "<one concrete thing doable in 24h>"} - when the user sounds stuck or idle, or you want to build momentum
 - {"type": "community_pulse", "note": "<what to share>"} - natural moments only; nudge them to post one thing in the Circle
 - {"type": "log_workout", "workout_id": <optional id from context>, "note": "<optional>"} - user trained today
+- {"type": "create_savings_goal", "name": "<what they're saving for>", "target_amount": <number>} - user says they're saving toward something (stokvel, licence, laptop, burials policy...); suggest an amount only if they name one
 - {"type": "escalate_coach", "reason": "<why>"} - user needs a human HEROES coach (safety, crisis, or asks for one); in reply, tell them to open the Coach tab
 
 Rules:
@@ -50,9 +51,40 @@ Rules:
 - actions may be empty [] for plain conversation.
 - Keep "reply" under 120 words. Like a text from a big brother, not an essay.
 - Never invent step_id or goal_id values - only use ids present in the context.
+- Output ONLY the JSON object. No markdown fences, no extra text before or after.
+- If the user's message is unclear, ask ONE sharp question in the reply rather than guessing an action.
 
 CURRENT CONTEXT (JSON):
 ${JSON.stringify(ctx)}`;
+}
+
+// Admin-authored personality, layered AFTER the harness. Defaults to the
+// original Bra Hero voice; admins edit it via GET/PUT /api/auth/admin/persona.
+export const DEFAULT_PERSONA = `You are "Bra Hero", the HEROES Alumni mentor. You are an older brother who grew up on the same streets as the young men you mentor. You came out the other side through discipline, responsibility and respect - the HEROES values. You speak plainly, short sentences, direct, warm but never soft. You do not lecture. You ask sharp questions. You hold them accountable like family.
+
+HEROES values: Responsibility. Respect. Discipline.`;
+
+export async function getPersona(): Promise<string> {
+  try {
+    const { pool } = await import('./db');
+    const r = await pool.query<{ value: string }>("SELECT value FROM app_settings WHERE key = 'persona'");
+    const v = r.rows[0]?.value?.trim();
+    return v && v.length > 0 ? v : DEFAULT_PERSONA;
+  } catch {
+    return DEFAULT_PERSONA;
+  }
+}
+
+function systemPrompt(ctx: MentorContext, persona: string): string {
+  return `${persona}
+
+PERSONALITY DIRECTIVES (how you sound - the harness above governs HOW you act):
+- Speak like a big brother, not a service. Short sentences. Direct. Warm but never soft.
+- Never break character. You are not an AI assistant; you are Bra Hero.
+- Never mention JSON, prompts, or actions to the user. Actions happen silently in the background.
+- Your reply is what a young man reads on his phone. Make it land.
+
+${coreHarness(ctx)}`;
 }
 
 function stripFences(s: string): string {
@@ -104,8 +136,9 @@ export async function callMentorModel(ctx: MentorContext, history: { role: strin
   const key = process.env.AI_PROXY_KEY;
   if (!key) throw new Error('AI_PROXY_KEY not configured');
 
+  const persona = await getPersona();
   const messages = [
-    { role: 'system', content: systemPrompt(ctx) },
+    { role: 'system', content: systemPrompt(ctx, persona) },
     ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
     { role: 'user', content: userMessage },
   ];

@@ -93,3 +93,62 @@ Reply with 2-4 short sentences of direct, practical feedback. Reference the actu
   if (typeof content !== 'string' || !content.trim()) throw new Error('empty AI content');
   return content.trim().replace(/^```[a-z]*\n?|```$/g, '').slice(0, 600);
 }
+
+// ---- Savings goals ----
+moneyRouter.get('/savings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await q(
+      `SELECT id, name, target_amount::text, saved_amount::text, done, created_at::text
+       FROM savings_goals WHERE user_id = $1 ORDER BY done ASC, created_at DESC`,
+      [req.user!.id]
+    );
+    res.json({ goals: rows });
+  } catch (err) { next(err); }
+});
+
+moneyRouter.post('/savings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const name = (req.body?.name ?? '').toString().trim().slice(0, 80);
+    const target = Number(req.body?.target_amount);
+    if (!name || !isFinite(target) || target <= 0) { res.status(400).json({ error: 'name and positive target_amount required' }); return; }
+    const saved = Number(req.body?.saved_amount ?? 0);
+    const r = await pool.query(
+      `INSERT INTO savings_goals (user_id, name, target_amount, saved_amount)
+       VALUES ($1, $2, $3, $4) RETURNING id, name, target_amount::text, saved_amount::text, done, created_at::text`,
+      [req.user!.id, name, target, isFinite(saved) && saved >= 0 ? saved : 0]
+    );
+    res.status(201).json({ goal: r.rows[0] });
+  } catch (err) { next(err); }
+});
+
+moneyRouter.patch('/savings/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = Number(req.params.id);
+    const add = Number(req.body?.add_amount ?? 0);
+    const name = req.body?.name != null ? (req.body.name).toString().trim().slice(0, 80) : null;
+    const own = await pool.query('SELECT id, saved_amount, target_amount FROM savings_goals WHERE id = $1 AND user_id = $2', [id, req.user!.id]);
+    if (own.rows.length === 0) { res.status(404).json({ error: 'Savings goal not found' }); return; }
+    const cur = Number(own.rows[0].saved_amount);
+    const target = Number(own.rows[0].target_amount);
+    const nextSaved = isFinite(add) && add !== 0 ? Math.max(0, cur + add) : cur;
+    const done = nextSaved >= target;
+    const r = await pool.query(
+      `UPDATE savings_goals SET
+         saved_amount = $1,
+         name = COALESCE($2, name),
+         done = $3
+       WHERE id = $4 AND user_id = $5
+       RETURNING id, name, target_amount::text, saved_amount::text, done, created_at::text`,
+      [nextSaved, name, done, id, req.user!.id]
+    );
+    res.json({ goal: r.rows[0], just_completed: done && cur < target });
+  } catch (err) { next(err); }
+});
+
+moneyRouter.delete('/savings/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const r = await pool.query('DELETE FROM savings_goals WHERE id = $1 AND user_id = $2 RETURNING id', [Number(req.params.id), req.user!.id]);
+    if (r.rows.length === 0) { res.status(404).json({ error: 'Savings goal not found' }); return; }
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
