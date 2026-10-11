@@ -10,7 +10,7 @@ workRouter.use(requireAuth);
 workRouter.get('/opportunities', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const rows = await q<Opportunity>(
-      `SELECT id, title, org, kind, location, apply_url, description, closes_on::text, active
+      `SELECT id, title, org, kind, location, apply_url, description, closes_on::text, active, image_url
        FROM opportunities WHERE active = true ORDER BY id DESC LIMIT 50`
     );
     res.json({ opportunities: rows });

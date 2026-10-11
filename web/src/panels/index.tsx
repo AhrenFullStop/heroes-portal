@@ -1,14 +1,15 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { Target, Users, Wallet, Dumbbell, Briefcase, LifeBuoy } from 'lucide-react';
+import { Target, Users, Wallet, Dumbbell, Briefcase, LifeBuoy, MessageCircle } from 'lucide-react';
 import PathPanel from './PathPanel';
 import CirclePanel from './CirclePanel';
 import MoneyPanel from './MoneyPanel';
 import MovePanel from './MovePanel';
 import WorkPanel from './WorkPanel';
 import CoachPanel from './CoachPanel';
+import { MessagesPanel } from './MessagesPanel';
 
-export type PanelId = 'path' | 'circle' | 'money' | 'move' | 'work' | 'coach';
+export type PanelId = 'path' | 'circle' | 'money' | 'move' | 'work' | 'coach' | 'messages';
 
 export interface PanelProps {
   onDismiss?: () => void;
@@ -24,6 +25,7 @@ export const PANEL_REGISTRY: Record<
   move: { label: 'Move', icon: Dumbbell, component: MovePanel },
   work: { label: 'Work', icon: Briefcase, component: WorkPanel },
   coach: { label: 'Coach', icon: LifeBuoy, component: CoachPanel },
+  messages: { label: 'Messages', icon: MessageCircle, component: MessagesPanel },
 };
 
 // Shared panel UI lives in ./shared and is re-exported here so consumers can

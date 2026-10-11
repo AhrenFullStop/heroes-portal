@@ -149,3 +149,35 @@ CREATE TABLE IF NOT EXISTS savings_goals (
   done boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Circle v2: votes, edits, soft-delete, images
+ALTER TABLE circle_posts ADD COLUMN IF NOT EXISTS image_url text;
+ALTER TABLE circle_posts ADD COLUMN IF NOT EXISTS edited_at timestamptz;
+ALTER TABLE circle_posts ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+CREATE TABLE IF NOT EXISTS circle_votes (
+  post_id integer NOT NULL REFERENCES circle_posts(id) ON DELETE CASCADE,
+  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  value integer NOT NULL CHECK (value = 1),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (post_id, user_id)
+);
+-- Direct messages (small community: everyone may DM everyone; admin can too)
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id serial PRIMARY KEY,
+  from_user integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content text NOT NULL,
+  read_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_dm_pair ON direct_messages(from_user, to_user, created_at);
+-- Opportunities: admin images
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS image_url text;
+
+-- Post images stored as bytes (container FS is ephemeral)
+ALTER TABLE circle_posts ADD COLUMN IF NOT EXISTS image_data bytea;
+ALTER TABLE circle_posts ADD COLUMN IF NOT EXISTS image_mime text;
+
+-- Opportunity images (admin-uploaded, bytes in DB)
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS image_data bytea;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS image_mime text;

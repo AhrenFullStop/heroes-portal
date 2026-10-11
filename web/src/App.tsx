@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { MessageSquare, Wrench, Settings, LogOut, X } from 'lucide-react';
+import { Eye, MessageSquare, Users, Wrench, Settings, LogOut, X } from 'lucide-react';
 import { api } from './api';
 import Login from './pages/Login';
 import Chat from './pages/Chat';
@@ -8,12 +8,14 @@ import Admin from './pages/Admin';
 import { PANEL_REGISTRY, type PanelId } from './panels';
 import type { User } from '../../shared/types';
 
-type Page = 'chat' | 'tools' | 'admin';
+type Page = 'chat' | 'circle' | 'tools' | 'admin';
 
 const NAV: { id: Page; label: string; icon: typeof MessageSquare }[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
+  { id: 'circle', label: 'Circle', icon: Users },
   { id: 'tools', label: 'Tools', icon: Wrench },
 ];
+
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -38,7 +40,7 @@ export default function App() {
   if (booting) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-slate-950">
-        <img src="/brand/icon-square.png" alt="HEROES" className="w-14 h-14 object-contain animate-pulse" />
+        <img src="/brand/app-logo.png" alt="HEROES" className="w-14 h-14 object-contain animate-pulse" />
       </div>
     );
   }
@@ -61,6 +63,10 @@ export default function App() {
     switch (page) {
       case 'chat':
         return <Chat userName={user!.display_name} panel={panel} onPanelDismiss={() => setPanel(null)} onOpenPanel={(id) => setPanel(id)} />;
+      case 'circle': {
+        const Circle = PANEL_REGISTRY.circle.component;
+        return <Circle />;
+      }
       case 'admin':
         return <Admin />;
       case 'tools':
@@ -68,9 +74,31 @@ export default function App() {
     }
   }
 
+  async function exitViewAs() {
+    const res = await api.post<{ ok: boolean; user: User }>('/auth/admin/view-as/exit');
+    setPanel(null);
+    setPage('admin');
+    setUser(res.user);
+  }
+
+
   return (
-    <div className="h-dvh flex bg-slate-950">
-      {/* Desktop sidebar */}
+    <div className="h-dvh flex flex-col bg-slate-950">
+      {user.impersonating && (
+        <div className="shrink-0 z-[60] relative bg-amber-500 text-slate-950 flex items-center gap-2 px-4 py-2">
+          <Eye size={16} className="shrink-0" />
+          <span className="text-xs font-black uppercase tracking-wider truncate flex-1">
+            Viewing as {user.display_name}
+          </span>
+          <button
+            onClick={exitViewAs}
+            className="shrink-0 min-h-9 px-3 rounded-lg bg-slate-950 text-amber-400 text-xs font-black uppercase tracking-wider hover:bg-slate-900 active:scale-95 transition"
+          >
+            Exit view
+          </button>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 flex">
       <nav className="hidden md:flex flex-col w-56 border-r border-slate-800/60 bg-slate-950 py-5">
         <div className="flex items-center gap-3 px-5 mb-8">
           <img src="/brand/portrait.png" alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-800" />
@@ -110,7 +138,7 @@ export default function App() {
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800/60 bg-slate-950/90 pt-safe">
           <div className="flex items-center gap-2.5">
-            <img src="/brand/icon-square.png" alt="" className="h-9 w-9 object-contain" />
+            <img src="/brand/app-logo.png" alt="" className="h-9 w-9 object-contain" />
             <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto" />
           </div>
           <button onClick={logout} className="text-slate-500 hover:text-red-400 p-1" aria-label="Log out">
@@ -176,20 +204,22 @@ export default function App() {
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar p-4">
               <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
-                {(Object.keys(PANEL_REGISTRY) as PanelId[]).map((id) => {
-                  const entry = PANEL_REGISTRY[id];
-                  const Icon = entry.icon;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => openPanel(id)}
-                      className="min-h-28 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center gap-2.5 text-slate-200 hover:border-amber-500/50 active:scale-95 transition"
-                    >
-                      <Icon size={26} className="text-amber-500" />
-                      <span className="text-sm font-bold">{entry.label}</span>
-                    </button>
-                  );
-                })}
+                {(Object.keys(PANEL_REGISTRY) as PanelId[])
+                  .filter((id) => id !== 'circle') // Circle is a primary tab now
+                  .map((id) => {
+                    const entry = PANEL_REGISTRY[id];
+                    const Icon = entry.icon;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => openPanel(id)}
+                        className="min-h-28 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center gap-2.5 text-slate-200 hover:border-amber-500/50 active:scale-95 transition"
+                      >
+                        <Icon size={26} className="text-amber-500" />
+                        <span className="text-sm font-bold">{entry.label}</span>
+                      </button>
+                    );
+                  })}
                 {isAdmin && (
                   <button
                     onClick={() => setPage('admin')}
@@ -204,6 +234,7 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

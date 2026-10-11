@@ -1,5 +1,16 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { pool } from '../db';
+
+const oppImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+    if (!ok) { cb(new Error('Only jpeg/png/webp images are allowed')); return; }
+    cb(null, true);
+  },
+});
 import { hashPassword, verifyPassword, requireAuth } from '../auth';
 import type { MemberOverview, AdminOverviewResponse } from '../../../shared/types';
 
@@ -130,6 +141,116 @@ function moodDecline(trend: { mood: string | null }[]): boolean {
 
 // ---- Bra Hero persona (admin-editable) ----
 const PERSONA_MAX = 4000;
+
+
+// ---- Opportunity management (admin) ----
+authRouter.post('/admin/opportunities', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const title = (req.body?.title ?? '').toString().trim().slice(0, 120);
+    const kind = (req.body?.kind ?? '').toString();
+    if (!title || !['job','learnership','bursary','training'].includes(kind)) {
+      res.status(400).json({ error: 'title and valid kind required (job|learnership|bursary|training)' }); return;
+    }
+    const closes = req.body?.closes_on ? new Date(req.body.closes_on) : null;
+    const r = await pool.query(
+      `INSERT INTO opportunities (title, org, kind, location, apply_url, description, closes_on, created_by, image_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [title, (req.body?.org ?? '').toString().slice(0, 120), kind,
+       req.body?.location?.toString().slice(0, 120) || null,
+       req.body?.apply_url?.toString().slice(0, 500) || null,
+       req.body?.description?.toString().slice(0, 1000) || null,
+       closes && !isNaN(closes.getTime()) ? closes : null,
+       req.user!.id,
+       req.body?.image_url?.toString().slice(0, 500) || null]
+    );
+    res.status(201).json({ opportunity: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: 'Failed to create opportunity' }); }
+});
+
+authRouter.put('/admin/opportunities/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const cur = await pool.query('SELECT * FROM opportunities WHERE id = $1', [id]);
+    if (cur.rows.length === 0) { res.status(404).json({ error: 'Not found' }); return; }
+    const c = cur.rows[0];
+    const closes = req.body?.closes_on !== undefined ? (req.body.closes_on ? new Date(req.body.closes_on) : null) : c.closes_on;
+    const r = await pool.query(
+      `UPDATE opportunities SET title=$1, org=$2, kind=$3, location=$4, apply_url=$5, description=$6, closes_on=$7, active=$8, image_url=$9
+       WHERE id = $10 RETURNING *`,
+      [
+        req.body?.title?.toString().slice(0, 120) ?? c.title,
+        req.body?.org?.toString().slice(0, 120) ?? c.org,
+        ['job','learnership','bursary','training'].includes(req.body?.kind) ? req.body.kind : c.kind,
+        req.body?.location !== undefined ? req.body.location?.toString().slice(0, 120) || null : c.location,
+        req.body?.apply_url !== undefined ? req.body.apply_url?.toString().slice(0, 500) || null : c.apply_url,
+        req.body?.description !== undefined ? req.body.description?.toString().slice(0, 1000) || null : c.description,
+        closes && !isNaN(closes.getTime()) ? closes : null,
+        req.body?.active !== undefined ? !!req.body.active : c.active,
+        req.body?.image_url !== undefined ? req.body.image_url?.toString().slice(0, 500) || null : c.image_url,
+        id
+      ]
+    );
+    res.json({ opportunity: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: 'Failed to update opportunity' }); }
+});
+
+authRouter.delete('/admin/opportunities/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const r = await pool.query('UPDATE opportunities SET active = false WHERE id = $1 RETURNING id', [Number(req.params.id)]);
+    if (r.rows.length === 0) { res.status(404).json({ error: 'Not found' }); return; }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Failed to remove opportunity' }); }
+});
+
+// opportunity image upload (multipart) - stores bytes like circle posts
+authRouter.post('/admin/opportunities/:id/image', requireAuth, requireAdmin, oppImageUpload.single('image'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) { res.status(400).json({ error: 'image file required (field name: image)' }); return; }
+    const r = await pool.query(
+      'UPDATE opportunities SET image_data = $1, image_mime = $2 WHERE id = $3 RETURNING id, image_url',
+      [req.file!.buffer, req.file!.mimetype, Number(req.params.id)]
+    );
+    if (r.rows.length === 0) { res.status(404).json({ error: 'Not found' }); return; }
+    const url = `/api/auth/opportunities/${r.rows[0].id}/image`;
+    await pool.query('UPDATE opportunities SET image_url = $1 WHERE id = $2', [url, r.rows[0].id]);
+    res.json({ image_url: url });
+  } catch (err) { res.status(500).json({ error: 'Upload failed' }); }
+});
+
+authRouter.get('/opportunities/:id/image', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const r = await pool.query<{ image_data: Buffer; image_mime: string }>(
+      'SELECT image_data, image_mime FROM opportunities WHERE id = $1 AND image_data IS NOT NULL',
+      [Number(req.params.id)]
+    );
+    if (r.rows.length === 0) { res.status(404).json({ error: 'Not found' }); return; }
+    res.setHeader('Content-Type', r.rows[0].image_mime || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    res.send(r.rows[0].image_data);
+  } catch (err) { res.status(500).json({ error: 'Failed to load image' }); }
+});
+
+
+// ---- View-as member (admin) ----
+// Sets a session flag; ALL role checks (requireAuth/requireAdmin) read the effective user.
+authRouter.post('/admin/view-as/exit', requireAuth, async (req: Request, res: Response) => {
+  try {
+    delete req.session.viewAsId;
+    const adminId = req.realUser?.id ?? req.user!.id;
+    const r = await pool.query("SELECT id, username, display_name, role FROM users WHERE id = $1", [adminId]);
+    res.json({ ok: true, user: r.rows[0] ?? null });
+  } catch (err) { res.status(500).json({ error: 'Exit failed' }); }
+});
+
+authRouter.post('/admin/view-as/:userId', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const target = Number(req.params.userId);
+    const r = await pool.query("SELECT id, username, display_name, role FROM users WHERE id = $1 AND role = 'alumnus'", [target]);
+    if (r.rows.length === 0) { res.status(404).json({ error: 'Member not found' }); return; }
+    req.session.viewAsId = target;
+    res.json({ user: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: 'View-as failed' }); }
+});
 
 authRouter.get('/admin/persona', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   try {

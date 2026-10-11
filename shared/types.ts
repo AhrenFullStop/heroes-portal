@@ -7,6 +7,41 @@ export interface User {
   username: string;
   display_name: string;
   role: Role;
+  impersonating?: boolean;
+}
+
+export interface PersonaState {
+  persona: string;
+  is_custom: boolean;
+  updated_at: string | null;
+  default: string;
+}
+
+export interface SavingsGoal {
+  id: number;
+  name: string;
+  target_amount: string;
+  saved_amount: string;
+  done: boolean;
+  created_at: string;
+}
+
+export interface DirectMessage {
+  id: number;
+  from_user: number;
+  to_user: number;
+  content: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface DmConversation {
+  user_id: number;
+  display_name: string;
+  username: string;
+  last_message: string | null;
+  last_at: string | null;
+  unread: number;
 }
 
 // ---- Chat action protocol ----
@@ -146,6 +181,7 @@ export interface Opportunity {
   description: string | null;
   closes_on: string | null;
   active: boolean;
+  image_url: string | null;
 }
 
 export interface AdminUser {

@@ -6,6 +6,7 @@ import type { User } from '../../shared/types';
 declare module 'express-session' {
   interface SessionData {
     userId?: number;
+    viewAsId?: number;
   }
 }
 
@@ -14,6 +15,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: User;
+      realUser?: User;
     }
   }
 }
@@ -33,15 +35,34 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: 'Not logged in' });
       return;
     }
-    req.user = r.rows[0] as User;
+    req.realUser = r.rows[0] as User;
+    // View-as: effective user is the impersonated member; real admin identity kept in realUser.
+    const viewAsId = req.session.viewAsId;
+    if (viewAsId && req.realUser.role === 'admin' && viewAsId !== req.session.userId) {
+      const v = await pool.query(
+        "SELECT id, username, display_name, role FROM users WHERE id = $1 AND role = 'alumnus'",
+        [viewAsId]
+      );
+      if (v.rows.length > 0) {
+        req.user = { ...v.rows[0], impersonating: true } as User;
+        next();
+        return;
+      }
+      // target vanished: drop the stale view-as
+      delete req.session.viewAsId;
+    }
+    req.user = req.realUser;
     next();
   } catch (err) {
     next(err);
   }
 }
 
+// Admin gate resolves against the REAL identity, so an impersonating admin keeps
+// access to admin endpoints (including the view-as exit).
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!req.user || req.user.role !== 'admin') {
+  const role = req.realUser?.role ?? req.user?.role;
+  if (role !== 'admin') {
     res.status(403).json({ error: 'Admin only' });
     return;
   }
