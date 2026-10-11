@@ -238,12 +238,22 @@ export default function Chat({ userName, panel, onPanelDismiss }: ChatProps) {
         </button>
       </div>
 
-      {/* Dismissible feature panel, mounted above the conversation */}
-      {PanelComponent && (
-        <div className="px-3 pt-3">
-          <PanelComponent onDismiss={onPanelDismiss} />
-        </div>
-      )}
+      {/* Feature panel: full-screen sheet overlay above everything */}
+      <AnimatePresence>
+        {PanelComponent && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 z-40 bg-slate-950 flex flex-col pb-safe"
+          >
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+              <PanelComponent onDismiss={onPanelDismiss} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-4">
         {messages.length === 0 && (
