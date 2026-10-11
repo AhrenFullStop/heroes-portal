@@ -98,9 +98,7 @@ Sipho's account (sipho / heroes123) carries intentional demo state so the walkth
 
 ## Known limits (honest list)
 - **Casual goal mentions don't always create goals.** Saying "I want to get my licence" mid-conversation sometimes gets a conversational reply without the goal being logged; stating intent ("set that goal up with steps") works reliably. Fix is prompt-tuning + a confirmation step ("want me to log that as a goal?") — queued.
-- ~~Casual goal phrasing~~ improved by prompt hardening (round 3); still worth a demo pass.
 - **iOS voice needs a real-phone test.** The transcription path works everywhere we can test, but Safari's MediaRecorder + mic-permission flow behaves differently on real iPhones. Needs a physical device pass before launch.
-- **Avatar legibility at small sizes.** The Bra Hero avatar is the full brand mark in a circle; at 24–28px (beside messages) the two-stroke glyph may read as a blob. If it bothers you on a real phone, we generate a simplified single-stroke mark for small sizes.
 - **Same-tick concurrent duplicate sends** can still double-insert (the 5s replay guard is sequential-only; the client-side in-flight guard covers real double-taps). Only reachable via scripted concurrent calls.
 - **No push notifications yet.** Streak reminders would need Web Push + a service worker — the highest-value next engagement feature.
 - **Messages polling is 5s** (no websockets) — fine for a small community, worth upgrading if it grows.
