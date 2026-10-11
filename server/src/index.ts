@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   await initSchema();
   await ensureAdminFromEnv();
   await seedDemoData();
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.DEMO_SEED === '1') {
     await seedAdminDemo();
   }
 

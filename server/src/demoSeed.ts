@@ -12,11 +12,10 @@ function daysAgo(n: number): string {
 }
 
 export async function seedAdminDemo() {
-  // Deterministic: wipe prior demo members (cascades to their data), then reseed.
   const existing = await pool.query("SELECT id FROM users WHERE username LIKE 'demo_%'");
-  if (existing.rows.length > 0) {
-    await pool.query("DELETE FROM users WHERE username LIKE 'demo_%'");
-    console.log('[demo] cleared prior demo members');
+  if (existing.rows.length >= 8) {
+    console.log('[demo] demo members already present, skipping');
+    return;
   }
   const names: {username: string, display: string}[] = [];
   for (let i = 0; i < 8; i++) {
@@ -70,14 +69,12 @@ export async function seedAdminDemo() {
         await pool.query('INSERT INTO goal_steps (goal_id, label, done, position) VALUES ($1,$2,$3,$4)', [gr.rows[0].id, steps[s], done, s]);
       }
     }
-    // Chat activity
+    // Chat activity: disengaged members have none; everyone else recent.
     if (archetype !== 3) {
-      const lastActive = archetype === 4 ? daysAgo(0) : archetype === 3 ? null : daysAgo(Math.floor(Math.random()*3));
-      if (lastActive) {
-        await pool.query("INSERT INTO chat_messages (user_id, role, content) VALUES ($1,'user','Money check-in: made 4200 this month')", [uid]);
-        await pool.query("INSERT INTO chat_messages (user_id, role, content) VALUES ($1,'assistant','Sharp. Let us look at the numbers.')", [uid]);
-        await pool.query(`UPDATE chat_messages SET created_at = $2::timestamptz WHERE id IN (SELECT id FROM chat_messages WHERE user_id=$1 ORDER BY id DESC LIMIT 2)`, [uid, lastActive]);
-      }
+      const lastActive = daysAgo(archetype === 2 ? 1 : Math.floor(Math.random() * 3));
+      await pool.query("INSERT INTO chat_messages (user_id, role, content) VALUES ($1,'user','Money check-in: made 4200 this month')", [uid]);
+      await pool.query("INSERT INTO chat_messages (user_id, role, content) VALUES ($1,'assistant','Sharp. Let us look at the numbers.')", [uid]);
+      await pool.query(`UPDATE chat_messages SET created_at = $2::timestamptz WHERE id IN (SELECT id FROM chat_messages WHERE user_id=$1 ORDER BY id DESC LIMIT 2)`, [uid, lastActive]);
     }
     // Coach thread for archetype 4
     if (archetype === 4) {
