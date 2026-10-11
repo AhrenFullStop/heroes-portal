@@ -11,3 +11,6 @@ dist/
 .runos.scd.g7jp5.source-fingerprint
 .runos.scd.g7jp5.source-version
 server/node_modules_seed
+runos.*.config.env
+runos.*.source-fingerprint
+runos.*.source-version
