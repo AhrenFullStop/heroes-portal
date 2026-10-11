@@ -69,8 +69,34 @@ Agreed scope for "actually used by real alumni". **Full sweep re-run 2026-10-11 
 ## Demo-data note (for the staging walkthrough)
 Sipho's account (sipho / heroes123) carries intentional demo state so the walkthrough has texture: a driver-licence goal with step 1 done, a savings goal ("Laptop for coding course", R500 of R8000), a 1-day check-in streak, and a coach thread. All of it can be reset from the app (New conversation, uncheck steps) or wiped by recreating the user from Admin → Accounts.
 
+
+
+### S10 — Experience as member (sandbox, not impersonation)
+**As an admin, I want to feel exactly what members feel — test chats, check-ins, tools — without touching any real member's account.**
+- [x] One "Experience as member" button on the Dashboard enters member mode
+- [x] Mode uses a synthetic "Test Member" account (hero_sandbox): all test data lands there, never on a real member
+- [x] Member-mode nav is the pure member experience (Chat/Circle/Tools — no admin surface), amber "Test mode" banner with one-tap exit
+- [x] Sandbox excluded from the Dashboard member list and risk flags
+- Status: **verified live (staging, 2026-10-11)** — enter → sandbox chat 200 → exit → admin restored; overview shows no sandbox rows
+
+### S11 — Messages live in Circle
+**As a member, the Circle is the community surface: feed AND direct messages in one place.**
+- [x] Segmented [Feed | Messages] view inside the Circle tab with unread badge (polled)
+- [x] DM threads with 5s polling, mark-as-read on view
+- [x] Anyone can DM anyone (member→admin included)
+- [x] Tools sheet no longer holds Messages or Circle
+- Status: **verified live (staging, 2026-10-11)** — member→admin DM delivered and visible in admin conversation list
+
+### S12 — Admin login lands on the Dashboard
+**As an admin, my default view is the community dashboard — fundamentally different from the member experience.**
+- [x] Admin login lands on Dashboard (members overview, risk flags, accounts, opportunities, persona)
+- [x] Admin nav: Dashboard + Circle only (no Chat/Tools — those are member surfaces)
+- [x] Members never see any admin surface
+- Status: **verified live (staging, 2026-10-11)**
+
 ## Known limits (honest list)
 - **Casual goal mentions don't always create goals.** Saying "I want to get my licence" mid-conversation sometimes gets a conversational reply without the goal being logged; stating intent ("set that goal up with steps") works reliably. Fix is prompt-tuning + a confirmation step ("want me to log that as a goal?") — queued.
+- ~~Casual goal phrasing~~ improved by prompt hardening (round 3); still worth a demo pass.
 - **iOS voice needs a real-phone test.** The transcription path works everywhere we can test, but Safari's MediaRecorder + mic-permission flow behaves differently on real iPhones. Needs a physical device pass before launch.
 - **Avatar legibility at small sizes.** The Bra Hero avatar is the full brand mark in a circle; at 24–28px (beside messages) the two-stroke glyph may read as a blob. If it bothers you on a real phone, we generate a simplified single-stroke mark for small sizes.
 - **Same-tick concurrent duplicate sends** can still double-insert (the 5s replay guard is sequential-only; the client-side in-flight guard covers real double-taps). Only reachable via scripted concurrent calls.
