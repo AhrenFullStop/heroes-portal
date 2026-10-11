@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { pool, initSchema, ensureAdminFromEnv } from './db';
 import { seedDemoData } from './seedBootstrap';
+import { seedAdminDemo } from './demoSeed';
 import { authRouter } from './routes/auth';
 import { chatRouter } from './routes/chat';
 import { pathRouter } from './routes/path';
@@ -20,6 +21,9 @@ async function main(): Promise<void> {
   await initSchema();
   await ensureAdminFromEnv();
   await seedDemoData();
+  if (process.env.NODE_ENV !== 'production') {
+    await seedAdminDemo();
+  }
 
   const app = express();
   app.set('trust proxy', 1);
