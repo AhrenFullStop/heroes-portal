@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role text NOT NULL CHECK (role IN ('user','assistant')),
   content text NOT NULL,
+  archived boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Additive migrations (schema.sql re-runs at boot; these are safe no-ops when fresh)
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS archived boolean NOT NULL DEFAULT false;
+
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS checkins (

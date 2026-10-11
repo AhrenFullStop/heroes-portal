@@ -223,7 +223,7 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response, next: Next
     // History FIRST, before any insert, so the new message is never in its own context.
     const priorRows = await q<{ id: number; role: string; content: string; created_at: string }>(
       `SELECT id, role, content, created_at::text FROM chat_messages
-       WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 20`,
+       WHERE user_id = $1 AND archived = false ORDER BY created_at DESC, id DESC LIMIT 20`,
       [userId]
     );
     priorRows.reverse();
@@ -285,10 +285,25 @@ chatRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextF
   try {
     const rows = await q(
       `SELECT id, role, content, created_at::text FROM chat_messages
-       WHERE user_id = $1 ORDER BY created_at ASC, id ASC LIMIT 100`,
+       WHERE user_id = $1 AND archived = false ORDER BY created_at ASC, id ASC LIMIT 100`,
       [req.user!.id]
     );
     res.json({ messages: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Start a fresh conversation: archives history (keeps it for admin/audit),
+// next GET / returns an empty thread with a new Bra Hero greeting.
+chatRouter.post('/reset', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    await pool.query(
+      'UPDATE chat_messages SET archived = true WHERE user_id = $1 AND archived = false',
+      [userId]
+    );
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

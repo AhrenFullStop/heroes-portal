@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Send, CheckCircle2, Mic, Flame } from 'lucide-react';
+import { Send, CheckCircle2, Mic, Flame, RotateCcw } from 'lucide-react';
 import { api } from '../api';
 import { PANEL_REGISTRY, type PanelId } from '../panels';
 import type { ChatMessage, StreakInfo } from '../../../shared/types';
@@ -51,6 +51,25 @@ export default function Chat({ userName, panel, onPanelDismiss }: ChatProps) {
   const mimeRef = useRef<string | undefined>(undefined);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  async function resetConversation() {
+    if (busy) return;
+    try {
+      navigator.vibrate?.(10);
+    } catch { /* desktop */ }
+    setMessages([]);
+    setActionLabels([]);
+    milestonesShown.current = new Set();
+    try {
+      await api.post('/chat/reset');
+    } catch {
+      // server archive failed - local clear still gives a clean slate visually,
+      // but reload to resync rather than silently diverge
+      api.get<{ messages: ChatMessage[] }>('/chat')
+        .then((res) => setMessages(res.messages.map((m) => ({ ...m, pending: false }))))
+        .catch(() => {});
+    }
+  }
 
   function refreshStreak() {
     api.get<StreakInfo>('/path/streak').then((s) => {
@@ -203,6 +222,22 @@ export default function Chat({ userName, panel, onPanelDismiss }: ChatProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Chat header: brand + new conversation */}
+      <div className="flex items-center justify-between px-4 pt-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <img src="/brand/icon-square.png" alt="" className="h-9 w-9 object-contain shrink-0" />
+          <span className="font-black tracking-widest text-sm truncate">BRA HERO</span>
+        </div>
+        <button
+          onClick={resetConversation}
+          disabled={busy}
+          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-amber-400 disabled:opacity-40 px-2.5 py-2 rounded-lg min-h-[36px]"
+        >
+          <RotateCcw size={13} />
+          New
+        </button>
+      </div>
+
       {/* Dismissible feature panel, mounted above the conversation */}
       {PanelComponent && (
         <div className="px-3 pt-3">

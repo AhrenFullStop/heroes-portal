@@ -74,8 +74,29 @@ export function parseMentorTurn(raw: string): ChatTurn {
       };
     }
   } catch {
-    // degrade to plain chat below
+    // fall through to salvage scan
   }
+
+  // Some turns emit prose BEFORE the JSON object ("Nice.
+  // {"reply": ..., "actions": [...]}"). Scan right-to-left for a '{' whose
+  // suffix parses as a JSON object with a string reply, and salvage it
+  // (the inner reply restates the preface, so dropping the preface is safe).
+  let idx = cleaned.lastIndexOf('{');
+  while (idx !== -1) {
+    try {
+      const parsed = JSON.parse(cleaned.slice(idx));
+      if (parsed && typeof parsed.reply === 'string') {
+        return {
+          reply: parsed.reply,
+          actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+        };
+      }
+    } catch {
+      // not a JSON suffix; try an earlier brace
+    }
+    idx = cleaned.lastIndexOf('{', idx - 1);
+  }
+
   return { reply: cleaned, actions: [] };
 }
 

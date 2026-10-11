@@ -38,7 +38,7 @@ export default function App() {
   if (booting) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-slate-950">
-        <img src="/brand/icon.png" alt="HEROES" className="w-14 h-14 rounded-2xl animate-pulse" />
+        <img src="/brand/icon-square.png" alt="HEROES" className="w-14 h-14 object-contain animate-pulse" />
       </div>
     );
   }
@@ -110,7 +110,7 @@ export default function App() {
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800/60 bg-slate-950/90 pt-safe">
           <div className="flex items-center gap-2.5">
-            <img src="/brand/icon.png" alt="" className="h-8 w-8 rounded-lg object-cover" />
+            <img src="/brand/icon-square.png" alt="" className="h-9 w-9 object-contain" />
             <img src="/brand/wordmark.png" alt="HEROES" className="h-4 w-auto" />
           </div>
           <button onClick={logout} className="text-slate-500 hover:text-red-400 p-1" aria-label="Log out">
